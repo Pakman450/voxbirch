@@ -1,5 +1,6 @@
 use voxelizer::voxelize;
 use voxelizer::read_mol2_file;
+use voxelizer::itani_bin;
 
 use std::path::{Path};
 
@@ -20,7 +21,7 @@ struct Args {
     #[arg(short, long, default_value_t = 0.125)]
     resolution: f32,
 
-    /// target origin x0
+    /// target origin x0 y0 z0, comma separated
     #[arg(short, long, value_delimiter = ',', default_value = "0.0,0.0,0.0")]
     origin: Vec<f32>,
 
@@ -53,5 +54,8 @@ fn main() {
 
     // Print some voxel grid info
     println!("Voxel Grid Dimensions: {:?}", grids[0].dims);
-    // println!("First 100 values: {:?}", &grids[0].data);
+
+    let score = itani_bin(grids);
+
+    println!("Itani Similarity Score: {}", score);
 }

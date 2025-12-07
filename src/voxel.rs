@@ -50,7 +50,7 @@ pub fn voxelize(
             let iy = ((y - y0) / rs).floor() as usize;
             let iz = ((z - z0) / rs).floor() as usize;
             let index = grid.voxel_index(ix, iy, iz);
-            grid.data[index] += 1; // Mark voxel as occupied
+            grid.data[index] = 1; // Mark voxel as occupied
         }
 
         grids.push(grid);
@@ -62,8 +62,7 @@ pub fn voxelize(
     println!("Number of occupied voxels: {}", occupied_voxels);
 
     // print out the sum of all voxel values
-    let voxel_sum: usize = grid.data.iter().map(|&v| v as usize
-    ).sum();
+    let voxel_sum: usize = grid.data.iter().map(|&v| v as usize).sum();
     println!("Sum of all voxel values: {}", voxel_sum);
 
     grids
