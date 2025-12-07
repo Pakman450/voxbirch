@@ -9,7 +9,7 @@ pub fn itani_bin(l_grids: Vec<VoxelGrid>) -> f32 {
     let m = l_grids[0].data.len();
 
     // num of grids
-    let n = l_grids.len() as f32;
+    let n = l_grids.len();
 
     // vector to hold column wise sums
     let mut kq: Vec<f32> = vec![0.0; m]; 
@@ -31,7 +31,7 @@ pub fn itani_bin(l_grids: Vec<VoxelGrid>) -> f32 {
 
     for i in 0..m {
         denom += (kq[i] * (kq[i] - 1.0) / 2.0)
-            + (kq[i] * (n - kq[i]));
+            + (kq[i] * (n as f32 - kq[i]));
     }
 
     let itani = numer / denom;
