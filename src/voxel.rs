@@ -23,6 +23,9 @@ impl VoxelGrid {
 }
 
 // Example "voxelizer": fills grid with a single value
+// FIX: currently only for positive numbers
+// I have to Shift coordinates to positive first
+// I should find the minimium coordinates first and shift accordingly
 pub fn voxelize(
     l_mols: Vec<VoxMol>,
     dims: [usize; 3],
@@ -30,6 +33,7 @@ pub fn voxelize(
     x0: f32,
     y0: f32,
     z0: f32,
+    method: String,
 ) -> Vec::<VoxelGrid> {
 
     // create a list of voxel grids based on number of molecules
@@ -46,11 +50,27 @@ pub fn voxelize(
             let y = mol.y[atom_idx];
             let z = mol.z[atom_idx];
 
+            if x == -1000000000.0 {
+                println!("Skipping invalid atom coordinates");
+            }
+
             let ix = ((x - x0) / rs).floor() as usize;
             let iy = ((y - y0) / rs).floor() as usize;
             let iz = ((z - z0) / rs).floor() as usize;
+        
+            if x == -1000000000.0 {
+                println!("ix: {}", ix);
+                println!("iy: {}", iy);
+                println!("iz: {}", iz);
+            }
             let index = grid.voxel_index(ix, iy, iz);
-            grid.data[index] = 1; // Mark voxel as occupied
+            if method == "binary" {
+                grid.data[index] = 1; // Increment voxel value
+            } else {
+                grid.data[index] += 1; // Mark voxel as occupied
+
+            }
+
         }
 
         grids.push(grid);

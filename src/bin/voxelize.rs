@@ -1,6 +1,7 @@
 use voxelizer::voxelize;
 use voxelizer::read_mol2_file;
 use voxelizer::itani_bin;
+use voxelizer::itani_real;
 
 use std::path::{Path};
 
@@ -25,6 +26,10 @@ struct Args {
     #[arg(short, long, value_delimiter = ',', default_value = "0.0,0.0,0.0")]
     origin: Vec<f32>,
 
+        /// target origin x0 y0 z0, comma separated
+    #[arg(short, long, default_value = "binary")]
+    method: String,
+
 }
 
 
@@ -42,6 +47,7 @@ fn main() {
     let y0 = args.origin[1];       
     let z0 = args.origin[2];
     let resolution = args.resolution;
+    let method = args.method;
 
     // Read MOL2 file
     let path = Path::new(&file_path);
@@ -50,12 +56,16 @@ fn main() {
     let l_mols = read_mol2_file(path).expect("Failed to read MOL2 file");
 
     // Voxelization
-    let grids = voxelize(l_mols, [dimx, dimy, dimz], resolution, x0, y0, z0); 
+    let grids = voxelize(l_mols, [dimx, dimy, dimz], resolution, x0, y0, z0, method.clone()); 
 
     // Print some voxel grid info
     println!("Voxel Grid Dimensions: {:?}", grids[0].dims);
 
-    let score = itani_bin(grids);
-
-    println!("Itani Similarity Score: {}", score);
+    if method == "binary" {
+        println!("Itani Similarity Score: {}", itani_bin(grids));
+        return;
+    } else if method == "real" {
+        println!("Itani Similarity Score: {}", itani_real(grids));
+        return;
+    }
 }
