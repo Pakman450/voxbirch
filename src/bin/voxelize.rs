@@ -2,6 +2,7 @@ use voxelizer::voxelize;
 use voxelizer::read_mol2_file;
 use voxelizer::itani_bin;
 use voxelizer::itani_real;
+use voxelizer::diameter_real;
 
 use std::path::{Path};
 
@@ -26,7 +27,7 @@ struct Args {
     #[arg(short, long, value_delimiter = ',', default_value = "0.0,0.0,0.0")]
     origin: Vec<f32>,
 
-        /// target origin x0 y0 z0, comma separated
+    /// target origin x0 y0 z0, comma separated
     #[arg(short, long, default_value = "binary")]
     method: String,
 
@@ -62,10 +63,13 @@ fn main() {
     println!("Voxel Grid Dimensions: {:?}", grids[0].dims);
 
     if method == "binary" {
-        println!("Itani Similarity Score: {}", itani_bin(grids));
+        println!("Itani Similarity Score: {}", itani_bin(&grids));
         return;
     } else if method == "real" {
-        println!("Itani Similarity Score: {}", itani_real(grids));
+        let itani_r = itani_real(&grids);
+        println!("Itani Similarity Score: {}", itani_r);
+        println!("Diameter: {}", diameter_real(itani_r));
         return;
     }
+    
 }

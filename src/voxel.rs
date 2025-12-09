@@ -1,6 +1,6 @@
 use crate::file_io::VoxMol;
 
-
+#[derive(Clone)]
 pub struct VoxelGrid {
     pub dims: [usize; 3],
     pub data: Vec<u8>,    
@@ -50,27 +50,20 @@ pub fn voxelize(
             let y = mol.y[atom_idx];
             let z = mol.z[atom_idx];
 
-            if x == -1000000000.0 {
-                println!("Skipping invalid atom coordinates");
-            }
 
             let ix = ((x - x0) / rs).floor() as usize;
             let iy = ((y - y0) / rs).floor() as usize;
             let iz = ((z - z0) / rs).floor() as usize;
         
-            if x == -1000000000.0 {
-                println!("ix: {}", ix);
-                println!("iy: {}", iy);
-                println!("iz: {}", iz);
-            }
             let index = grid.voxel_index(ix, iy, iz);
+
+            
             if method == "binary" {
-                grid.data[index] = 1; // Increment voxel value
+                grid.data[index] = 1;
             } else {
-                grid.data[index] += 1; // Mark voxel as occupied
+                grid.data[index] += 1;
 
             }
-
         }
 
         grids.push(grid);
