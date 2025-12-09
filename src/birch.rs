@@ -3,7 +3,6 @@ use crate::voxel::VoxelGrid;
 use std::any::TypeId;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::borrow::BorrowMut;
 
 struct BFNode {
     threshold: f32,
@@ -75,7 +74,7 @@ impl VoxBirch {
 
         if self.first_call {
 
-            let root = 
+            self.root = 
                 Some(Rc::new(RefCell::new(BFNode::new(
                     self.threshold,
                     self.max_branches,
@@ -85,7 +84,7 @@ impl VoxBirch {
                 ))));
 
 
-            let dummy_leaf =                        
+            self.dummy_leaf =                        
                 Some(Rc::new(RefCell::new(BFNode::new(
                     self.threshold,
                     self.max_branches,
@@ -95,16 +94,21 @@ impl VoxBirch {
                 ))));
 
 
-            self.root = root;
-            self.dummy_leaf = dummy_leaf;
+            // self.root = root;
+            // self.dummy_leaf = dummy_leaf;
 
 
-            self.dummy_leaf.as_ref().unwrap().borrow_mut().next_leaf = self.root.clone();
-            self.root.as_ref().unwrap().borrow_mut().prev_leaf = self.dummy_leaf.clone();
+            self.dummy_leaf
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .next_leaf = self.root.clone();
 
-            // self.dummy_leaf.next_leaf = self.root.clone();
-
-            // self.root.prev_leaf = self.dummy_leaf.clone();
+            self.root
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .prev_leaf = self.dummy_leaf.clone();
 
         }
 
