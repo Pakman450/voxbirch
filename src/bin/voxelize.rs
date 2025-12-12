@@ -3,10 +3,12 @@ use voxelizer::read_mol2_file;
 use voxelizer::itani_bin;
 use voxelizer::itani_real;
 use voxelizer::diameter_real;
+use voxelizer::birch::VoxBirch;
 
 use std::path::{Path};
-
+use nalgebra::DMatrix;
 use clap::Parser;
+use rand::Rng;  
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -64,12 +66,22 @@ fn main() {
 
     if method == "binary" {
         println!("Itani Similarity Score: {}", itani_bin(&grids));
-        return;
     } else if method == "real" {
         let itani_r = itani_real(&grids);
         println!("Itani Similarity Score: {}", itani_r);
         println!("Diameter: {}", diameter_real(itani_r));
-        return;
     }
+
+
+    let mut vb = VoxBirch::new(0.5, 5);
+    let mut randmat: DMatrix<f32> = DMatrix::zeros(10, 10);
+        // Fill each element with a random float between 0.0 and 1.0
+    let mut rng = rand::thread_rng();
+    for i in 0..randmat.nrows() {
+        for j in 0..randmat.ncols() {
+            randmat[(i, j)] = rng.gen::<f32>(); // gen() generates a float in [0,1)
+        }
+    }
+    let _ = vb.fit(&randmat, true);
     
 }
