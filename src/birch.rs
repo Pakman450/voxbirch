@@ -44,7 +44,7 @@ impl BFNode {
     
     pub fn append_subcluster (&mut self, subcluster: BFSubcluster) {
 
-        
+        // This also returns the index for the last subcluster via index. 
         let n_samples: usize = match &self.subclusters {
             Some(subclusters) => subclusters.len(),
             None => 0,
@@ -117,7 +117,7 @@ impl BFNode {
         // println!("self.centroids{}", self.centroids.as_ref().unwrap());
         // println!("subcluster.centroid {}", &subcluster.centroid.as_ref().unwrap().transpose());
 
-
+        // perform dot product between two matrices. not inner dot product
         let a = self.centroids.as_ref().unwrap() * &subcluster.centroid.as_ref().unwrap().transpose();
 
         let row_sums: Vec<f32> = (0..self.centroids.as_ref().unwrap().nrows())
@@ -126,6 +126,7 @@ impl BFNode {
 
         let mut sim_matrix = a.clone();
 
+        // generate sim matrix
         for i in 0..sim_matrix.nrows() {
             let denom = row_sums[i] + set_bits;
             for j in 0..sim_matrix.ncols() {
@@ -136,6 +137,7 @@ impl BFNode {
         let mut max_val = f32::MIN;
         let mut closest_index = (0,0);
 
+        // Find index to the maximum value. 
         for i in 0..sim_matrix.nrows() {
             for j in 0..sim_matrix.ncols() {
                 if sim_matrix[(i,j)] > max_val {
@@ -237,7 +239,7 @@ impl VoxBirch {
 
 
     // Fit function. only takes in one grid. 
-    pub fn fit(&mut self, grids : &DMatrix<f32>, singly: bool) -> &VoxBirch {
+    pub fn fit(&mut self, grids : &DMatrix<f32>, singly: bool) {
 
 
         println!("Fitting BIRCH model to voxel grids...");
@@ -315,10 +317,6 @@ impl VoxBirch {
         }
 
         
-
-
-
-        self
     }
 
 

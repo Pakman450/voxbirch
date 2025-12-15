@@ -82,6 +82,6 @@ fn main() {
             randmat[(i, j)] = rng.gen::<f32>(); // gen() generates a float in [0,1)
         }
     }
-    let _ = vb.fit(&randmat, true);
-    
+    vb.fit(&randmat, true);
+        
 }
