@@ -287,21 +287,26 @@ impl BFNode {
 
     fn update_split_subclusters(
         & mut self,
-        subcluster: Rc<RefCell<BFSubcluster>> ,
-        new_subcluster1: BFSubcluster ,
-        new_subcluster2: BFSubcluster ,
+        row_idx: usize , 
+        mut new_subcluster1: BFSubcluster ,
+        mut new_subcluster2: BFSubcluster ,
         singly : bool
     ) {
-        // if !singly {
-        //     new_subcluster1.parent = self.subclusters[0].parent
-        //     new_subcluster2.parent = self.subclusters[0].parent
-        // }
+        if !singly {
+            new_subcluster1.parent = self.subclusters.as_ref().unwrap()[0].parent.clone();
+            new_subcluster2.parent = self.subclusters.as_ref().unwrap()[0].parent.clone();
+        }
 
         // ind = self.subclusters.index()
-        // self.subclusters_[ind] = new_subcluster1
-        // self.init_centroids_[ind] = new_subcluster1.centroid_
-        // self.centroids_[ind] = new_subcluster1.centroid_
-        // self.append_subcluster(new_subcluster2)
+        self.subclusters.as_mut().unwrap()[row_idx] = new_subcluster1.clone();
+        self.init_centroids.as_mut().unwrap().row_mut(row_idx).copy_from(
+            &new_subcluster1.centroid.clone().unwrap().row(0)
+        );
+        self.centroids.as_mut().unwrap().row_mut(row_idx).copy_from(
+            &new_subcluster1.centroid.clone().unwrap().row(0)
+        );
+        // self.centroids.unwrap()[row_idx] = new_subcluster1.centroid;
+        self.append_subcluster(new_subcluster2.clone());
 
     }
 
@@ -359,16 +364,14 @@ impl BFNode {
 
         let (row_idx, _) = closest_index; 
 
-        // get a reference towards self.subclusters.as_mut().unwrap()[row_idx]
-        let closest_subcluster =
-            &mut self.subclusters.as_mut().unwrap()[row_idx];
 
-        if !closest_subcluster.child.is_none() {
+        if !self.subclusters.as_mut().unwrap()[row_idx].child.is_none() {
             println!("ee2");
-            parent = closest_subcluster.clone();
+            parent = self.subclusters.as_mut().unwrap()[row_idx].clone();
 
             let split_child = 
-                closest_subcluster.child.as_ref().unwrap().borrow_mut().insert_bf_subcluster(
+                self.subclusters.as_mut().unwrap()[row_idx]
+                .child.as_ref().unwrap().borrow_mut().insert_bf_subcluster(
                     subcluster.clone(),
                     set_bits,
                     parent.clone(),
@@ -377,7 +380,7 @@ impl BFNode {
 
             if !split_child {
 
-                closest_subcluster.update(&subcluster, self.max_branches, self.n_features );
+                self.subclusters.as_mut().unwrap()[row_idx].update(&subcluster, self.max_branches, self.n_features );
 
                 self.init_centroids.as_mut().unwrap()
                     .row_mut(row_idx)
@@ -390,22 +393,30 @@ impl BFNode {
             } else {
 
                 let (new_subcluster1, new_subcluster2) = split_node(
-                    &closest_subcluster.child, // by reference. meaning this must be mutated
+                    &self.subclusters.as_mut().unwrap()[row_idx].child, // by reference. meaning this must be mutated
                     threshold,
                     max_branches,
                     singly
                 );
 
                 self.update_split_subclusters(
-                    closest_subcluster,
+                    row_idx,
                     new_subcluster1, 
                     new_subcluster2,
                     singly
                 );
 
+                if self.subclusters.as_ref().unwrap().len() > self.max_branches {
+                    return true
+                }
                 return false
             }
+        } else {
+
+
+
         }
+
 
         println!("closest_index = {:?}", closest_index);
         // println!("closest_subcluster {:?} ", closest_subcluster);
