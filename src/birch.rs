@@ -188,7 +188,7 @@ fn split_node(node_child: &Option<Rc<RefCell<BFNode>>>, threshold: f32, max_bran
             }
         }
     }
-    
+
     (new_subcluster1, new_subcluster2)
 }   
 
@@ -285,6 +285,26 @@ impl BFNode {
         // println!("Appending subcluster. Total subclusters: {:?}", self.centroids);
     }
 
+    fn update_split_subclusters(
+        & mut self,
+        subcluster: Rc<RefCell<BFSubcluster>> ,
+        new_subcluster1: BFSubcluster ,
+        new_subcluster2: BFSubcluster ,
+        singly : bool
+    ) {
+        // if !singly {
+        //     new_subcluster1.parent = self.subclusters[0].parent
+        //     new_subcluster2.parent = self.subclusters[0].parent
+        // }
+
+        // ind = self.subclusters.index()
+        // self.subclusters_[ind] = new_subcluster1
+        // self.init_centroids_[ind] = new_subcluster1.centroid_
+        // self.centroids_[ind] = new_subcluster1.centroid_
+        // self.append_subcluster(new_subcluster2)
+
+    }
+
     pub fn insert_bf_subcluster(
         &mut self,
         subcluster: BFSubcluster,
@@ -367,12 +387,19 @@ impl BFNode {
                     .row_mut(row_idx)
                     .copy_from(&self.subclusters.as_ref().unwrap()[row_idx].centroid.clone().unwrap());
                 return false
-            } else{
+            } else {
 
                 let (new_subcluster1, new_subcluster2) = split_node(
                     &closest_subcluster.child, // by reference. meaning this must be mutated
                     threshold,
                     max_branches,
+                    singly
+                );
+
+                self.update_split_subclusters(
+                    closest_subcluster,
+                    new_subcluster1, 
+                    new_subcluster2,
                     singly
                 );
 
