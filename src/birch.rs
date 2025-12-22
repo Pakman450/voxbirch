@@ -5,6 +5,77 @@ use std::any::TypeId;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+#[derive(Debug)]
+enum Parent {
+    Node(BFNode),
+    Subcluster(BFSubcluster)
+}
+
+fn max_separation(centroids: &DMatrix<f32>, max_branches: usize) -> (usize, usize, Vec<f32>, Vec<f32>){
+
+    
+
+    // Get the centroid of the set
+    let n_samples: u32 = centroids.nrows().try_into().unwrap();
+    // NOTE: row_sum adds all rows in an elementwise fashion per column. very confusing... 
+    let linear_sum: Vec<f32> = centroids.row_sum().as_slice().to_vec();
+    let centroid = calc_centroid( &linear_sum, n_samples, max_branches, centroids.ncols() );
+
+    // Get the similarity of each molecule to the centroid
+    // NOTE: column_sum adds all cols in an elementwise fashion per row. very confusing... 
+    let pop_counts: Vec<f32> = centroids.column_sum().as_slice().to_vec();
+
+    //This needs to calculate dot products for each row of centroids
+    // with centroid. centrpoid has a shape of n_features of cols
+    let a_centroid: Vec<f32> = (centroids * centroid.transpose()).as_slice().to_vec(); 
+
+    let sims_med: Vec<f32> = a_centroid.iter()
+        .zip(pop_counts.iter())
+        .map(|(&a, &p)| a / (p + centroid.row(0).sum()  - a))
+        .collect();
+
+
+    // # Get the least similar molecule to the centroid
+    // mol1 = np.argmin(sims_med)
+    let mol1 = sims_med
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .unwrap().0;
+    // # Get the similarity of each molecule to mol1
+    // a_mol1 = np.dot(X, X[mol1])
+
+    let a_mol1 : Vec<f32> = (centroids * centroids.row(mol1).transpose()).as_slice().to_vec();
+
+    // sims_mol1 = a_mol1 / (pop_counts + pop_counts[mol1] - a_mol1)
+
+    let sims_mol1: Vec<f32> = a_mol1.iter()
+        .zip(pop_counts.iter())
+        .map(|(&a, &p)| a / (p + pop_counts[mol1]  - a))
+        .collect();
+
+    // # Get the least similar molecule to mol1
+    // mol2 = np.argmin(sims_mol1)
+
+    let mol2 = sims_mol1
+        .iter()
+        .enumerate()
+        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .unwrap().0;
+
+    // # Get the similarity of each molecule to mol2
+    // a_mol2 = np.dot(X, X[mol2])
+    let a_mol2 : Vec<f32> = (centroids * centroids.row(mol2).transpose()).as_slice().to_vec();
+
+
+    // sims_mol2 = a_mol2 / (pop_counts + pop_counts[mol2] - a_mol2)
+    let sims_mol2: Vec<f32> = a_mol2.iter()
+        .zip(pop_counts.iter())
+        .map(|(&a, &p)| a / (p + pop_counts[mol2]  - a))
+        .collect();
+
+    return (mol1, mol2, sims_mol1, sims_mol2)
+}
 
 // NOTE: Original did something different here. 
 // This function doesn't take in max_branches or n_features.
@@ -24,6 +95,103 @@ fn calc_centroid( ls: &Vec<f32>, nj: u32, max_branches: usize, n_features: usize
 
     centroid
 }
+
+fn split_node(node_child: &Option<Rc<RefCell<BFNode>>>, threshold: f32, max_branches: usize, singly: bool )-> (BFSubcluster, BFSubcluster){
+
+    let mut node = node_child.as_ref().unwrap().borrow_mut();
+
+    let mut new_subcluster1 = BFSubcluster::new(None, Vec::<u32>::new(), max_branches, node.n_features);
+    let mut new_subcluster2 = BFSubcluster::new(None, Vec::<u32>::new(), max_branches, node.n_features);
+
+    // Assuming `node.n_features` is a field in your `Node` struct
+    let n_features = node.n_features; 
+
+    let  new_node1 = Rc::new(RefCell::new(BFNode::new(
+                    threshold,
+                    max_branches,
+                    node.is_leaf,
+                    n_features,
+                    //dtype=node.init_centroids_.dtype
+                    node.d_type,
+                )));
+
+    let  new_node2 = Rc::new(RefCell::new(BFNode::new(
+                    threshold,
+                    max_branches,
+                    node.is_leaf,
+                    n_features,
+                    //dtype=node.init_centroids_.dtype
+                    node.d_type,
+                )));
+    
+    new_subcluster1.child = Some(Rc::clone(&new_node1));
+    new_subcluster2.child = Some(Rc::clone(&new_node2));
+         
+    if node.is_leaf {
+        if !node.prev_leaf.is_none() {
+            node.prev_leaf
+            .as_ref()
+            .unwrap()
+            .borrow_mut().next_leaf = Some(Rc::clone( &new_node1 ));
+        }
+
+        new_node1.borrow_mut().prev_leaf = node.prev_leaf.clone();
+        new_node1.borrow_mut().next_leaf = Some(Rc::clone(&new_node2));
+
+        new_node2.borrow_mut().prev_leaf = Some(Rc::clone(&new_node1));
+        new_node2.borrow_mut().next_leaf = node.next_leaf.clone();
+
+        if !node.next_leaf.is_none() {
+            node.next_leaf
+            .as_ref()
+            .unwrap()
+            .borrow_mut().prev_leaf = Some(Rc::clone( &new_node2 ));
+        }
+
+    }
+
+    let (
+        farthest_idx1,
+        farthest_idx2,
+        node1_dist,
+        node2_dist
+    ) = max_separation(&node.centroids.clone().unwrap(), max_branches);
+
+
+    let mut node1_closer: Vec<bool> = node1_dist.iter()
+        .zip(node2_dist.iter())
+        .map(|(&d1, &d2)| d1 > d2)
+        .collect();
+
+    // FROM BITBIRCH: "Make sure node1 is closest to itself even if all distances are equal.
+    // This can only happen when all node.centroids_ are duplicates leading to all
+    // distances between centroids being zero.""
+    node1_closer[farthest_idx1] = true; 
+    
+    for (idx, subcluster) in node.subclusters.as_mut().unwrap().iter_mut().enumerate() {
+        if node1_closer[idx] {
+            new_node1.borrow_mut().append_subcluster(subcluster.clone());
+            new_subcluster1.update(subcluster, max_branches, n_features);
+            if !singly {
+                subcluster.parent = Some(Rc::new(RefCell::new(
+                    Parent::Subcluster(new_subcluster1.clone())
+                )));
+            }
+        } else {
+            new_node2.borrow_mut().append_subcluster(subcluster.clone());
+            new_subcluster2.update(subcluster, max_branches, n_features);
+            if !singly {
+                // let parent_subcluster = Parent::Subcluster(new_subcluster2.clone());
+                subcluster.parent = Some(Rc::new(RefCell::new(
+                    Parent::Subcluster(new_subcluster2.clone())
+                )));
+            }
+        }
+    }
+    
+    (new_subcluster1, new_subcluster2)
+}   
+
 
 
 
@@ -169,7 +337,11 @@ impl BFNode {
             }
         }
 
-        let mut closest_subcluster = self.subclusters.as_ref().unwrap()[closest_index.0].clone();
+        let (row_idx, _) = closest_index; 
+
+        // get a reference towards self.subclusters.as_mut().unwrap()[row_idx]
+        let closest_subcluster =
+            &mut self.subclusters.as_mut().unwrap()[row_idx];
 
         if !closest_subcluster.child.is_none() {
             println!("ee2");
@@ -184,11 +356,8 @@ impl BFNode {
                 );
 
             if !split_child {
-                println!("ee2");
-                let (row_idx, col_idx) = closest_index; // tuple (usize, usize)
 
                 closest_subcluster.update(&subcluster, self.max_branches, self.n_features );
-
 
                 self.init_centroids.as_mut().unwrap()
                     .row_mut(row_idx)
@@ -199,6 +368,14 @@ impl BFNode {
                     .copy_from(&self.subclusters.as_ref().unwrap()[row_idx].centroid.clone().unwrap());
                 return false
             } else{
+
+                let (new_subcluster1, new_subcluster2) = split_node(
+                    &closest_subcluster.child, // by reference. meaning this must be mutated
+                    threshold,
+                    max_branches,
+                    singly
+                );
+
                 return false
             }
         }
@@ -218,7 +395,7 @@ struct BFSubcluster {
     mols: Option<Vec<u32>>,
     cj: Option<Vec<f32>>,
     child: Option<Rc<RefCell<BFNode>>>,
-    parent: Option<Rc<RefCell<BFNode>>>,
+    parent: Option<Rc<RefCell<Parent>>>,
     centroid: Option<DMatrix<f32>>,
 }
 
@@ -269,6 +446,9 @@ impl BFSubcluster {
 
         self.nj += subcluster.nj;
 
+
+        // NOTE: the original wanted to `self.linear_sum_ += subcluster.linear_sum_`
+        // This IS the same as elementwise increments between two ndarrays 
         if let (Some(a), Some(b)) = (self.ls.as_mut(), subcluster.ls.as_ref()) {
             assert_eq!(a.len(), b.len());
 
@@ -277,12 +457,13 @@ impl BFSubcluster {
             }
         }
 
+        // NOTE: the original wanted to `self.mol_indices += subcluster.mol_indices`
+        // This is not the same as elementwise increments. This is an extension between two
+        // arrays. 
         if let (Some(a), Some(b)) = (self.mols.as_mut(), subcluster.mols.as_ref()) {
             assert_eq!(a.len(), b.len());
 
-            for (x, y) in a.iter_mut().zip(b.iter()) {
-                *x += *y;
-            }
+            a.extend_from_slice(b);
         }
 
         // NOTE: Original did something different here. 
