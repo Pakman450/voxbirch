@@ -711,6 +711,7 @@ pub struct VoxBirch {
     first_call: bool,
     root: Option<Rc<RefCell<BFNode>>>,
     dummy_leaf: Option<Rc<RefCell<BFNode>>>,
+    subcluster_centers: Option<Vec<DMatrix<f32>>>
 }
 
 
@@ -722,13 +723,14 @@ impl VoxBirch {
             index_tracker: 0,
             first_call: true,
             root: None,
-            dummy_leaf: None
+            dummy_leaf: None,
+            subcluster_centers: None
         }
     }
 
 
     // Fit function. only takes in one grid. 
-    pub fn fit(&mut self, grids : &DMatrix<f32>, singly: bool) {
+    pub fn fit(&mut self, grids : &DMatrix<f32>, singly: bool) -> &mut VoxBirch {
 
 
         println!("Fitting BIRCH model to voxel grids...");
@@ -798,15 +800,107 @@ impl VoxBirch {
                 singly
             );
 
-            // println!("{:?}", subcluster);
+            if split {
+                let (new_subcluster1, new_subcluster2) = split_node(
+                    &self.root,
+                    self.threshold,
+                    self.max_branches,
+                    singly
+                );
 
 
+
+                self.root = None;
+
+                self.root = Some(Rc::new(RefCell::new(BFNode::new(
+                    self.threshold,
+                    self.max_branches,
+                    false,
+                    n_features,
+                    TypeId::of::<f32>(),
+                ))));
+
+                self.root.as_ref()
+                    .unwrap()
+                    .borrow_mut()
+                    .append_subcluster(new_subcluster1.clone());
+
+                self.root.as_ref()
+                    .unwrap()
+                    .borrow_mut()
+                    .append_subcluster(new_subcluster2.clone());       
+
+                if !singly {
+                    // Iterate over subclusters in new_subcluster1
+                    if let Some(child_node1) = &new_subcluster1.child {
+                        if let Some(subclusters1) = &child_node1.borrow().subclusters {
+                            for subcluster in subclusters1 {
+                                if let Some(parent) = &subcluster.parent {
+                                    // Mutate the parent reference to point to new_subcluster1
+                                    *parent.borrow_mut() = Parent::Subcluster(new_subcluster1.clone());
+                                }
+                            }
+                        }
+                    }
+
+                    // Iterate over subclusters in new_subcluster2
+                    if let Some(child_node2) = &new_subcluster2.child {
+                        if let Some(subclusters2) = &child_node2.borrow().subclusters {
+                            for subcluster in subclusters2 {
+                                if let Some(parent) = &subcluster.parent {
+                                    // Mutate the parent reference to point to new_subcluster2
+                                    *parent.borrow_mut() = Parent::Subcluster(new_subcluster2.clone());
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+            self.index_tracker += 1;
         }
 
+        // // Get leaves by calling get_leaves()
+        // let leaves = self.get_leaves();
+
+        // // Concatenate the centroids of each leaf node
+        // for leaf in leaves {
+        //     if let Some(leaf_centroids) = &leaf.borrow().centroids {
+        //         self.subcluster_centers.unwrap().extend_from_slice(leaf_centroids);
+        //     }
+        // }
+
+        // // // Assuming the centroids are a matrix and need to be reshaped
+        // // self.subcluster_centers = Some(centroids);
+
+        // // Set the number of features
+        // if let Some(centroids) = &self.subcluster_centers {
+        //     self._n_features_out = centroids.nrows();
+        // }
         
+        self.first_call = false;
+        return self
+
+
+        // centroids = np.concatenate([leaf.centroids_ for leaf in self._get_leaves()])
+        // self.subcluster_centers_ = centroids
+        // self._n_features_out = self.subcluster_centers_.shape[0]
+        
+        // self.first_call = False
+        // return self
     }
 
-
+    fn get_leaves(&self) -> Vec<Rc<RefCell<BFNode>>> {
+        let mut leaves = Vec::new();
+        let mut leaf_ptr = self.dummy_leaf.as_ref().unwrap().borrow().next_leaf.clone();
+        
+        while let Some(leaf) = leaf_ptr {
+            leaves.push(leaf.clone());
+            leaf_ptr = leaf.borrow().next_leaf.clone();
+        }
+        
+        leaves
+    }
 }
 
 
