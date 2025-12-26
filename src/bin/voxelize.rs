@@ -54,13 +54,57 @@ fn main() {
     // Get molecule list
     let l_mols = read_mol2_file(path).expect("Failed to read MOL2 file");
 
-    // Voxelization
+    // Give user the recommended origin values for placing voxels.
+    let mut l_vals = Vec::<f32>::new();
+
+    for mol in &l_mols {
+        l_vals.extend(mol.x.clone())
+    }
+
+    // Give user origin recommendation 
+    if let Some(min_value) = &l_vals.iter().cloned().filter(|&x| !x.is_nan()).min_by(|a, b| a.partial_cmp(b).unwrap()) {
+        println!("The minimum x value is: {}", min_value);
+    } else {
+        panic!("No valid minimum found (possibly due to NaN values).");
+    }
+
+    l_vals.clear();
+
+    for mol in &l_mols {
+        l_vals.extend(mol.y.clone())
+    }
+
+    // Give user origin recommendation 
+    if let Some(min_value) = &l_vals.iter().cloned().filter(|&x| !x.is_nan()).min_by(|a, b| a.partial_cmp(b).unwrap()) {
+        println!("The minimum y value is: {}", min_value);
+    } else {
+        panic!("No valid minimum found (possibly due to NaN values).");
+    }
+
+    l_vals.clear();
+
+
+    for mol in &l_mols {
+        l_vals.extend(mol.z.clone())
+    }
+
+    // Give user origin recommendation 
+    if let Some(min_value) = &l_vals.iter().cloned().filter(|&x| !x.is_nan()).min_by(|a, b| a.partial_cmp(b).unwrap()) {
+        println!("The minimum z value is: {}", min_value);
+    } else {
+        panic!("No valid minimum found (possibly due to NaN values).");
+    }
+
+    // Voxelization of molecules's xyz's
     let grids = voxelize(l_mols, [dimx, dimy, dimz], resolution, x0, y0, z0); 
 
     // Print some voxel grid info
     println!("Voxel Grid Dimensions: {:?}", grids[0].dims);
 
-    let mut vb = VoxBirch::new(0.5, 50);
+    let mut vb = VoxBirch::new(
+        0.5, // threshold
+        50 // branches
+    );
 
     // Get the number of rows (which is the number of VoxelGrids)
     let num_rows = grids.len();
@@ -69,7 +113,10 @@ fn main() {
     let num_cols = grids[0].data.len();  // Assuming all VoxelGrids have the same length of data
 
     // Create the DMatrix with the correct size
-    let mut input_matrix: DMatrix<f32> = DMatrix::zeros(num_rows, num_cols);
+    let mut input_matrix: DMatrix<f32> = DMatrix::zeros(
+        num_rows, 
+        num_cols
+    );
 
     // Fill the matrix with the data from each VoxelGrid
     for (i, grids) in grids.iter().enumerate() {
@@ -78,7 +125,7 @@ fn main() {
         }
     }
 
-
+    // start clustering
     vb.fit(&input_matrix, true);
         
 }
