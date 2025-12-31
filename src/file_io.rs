@@ -57,10 +57,11 @@ pub fn read_mol2_file(path: &Path) -> Result<Vec<VoxMol>> {
             // Parse atom line to extract x, y, z coordinates
             // Example line format (not actual MOL2 format):
             // 1 C1 0.000 0.000 0.000 C
+            // Ignores Hs and only takes coordinate of heavy atoms.  
 
             let parts: Vec<&str> = line.split_whitespace().collect();
 
-            if parts.len() >= 5 {
+            if parts.len() >= 5 && parts[5] != "H" {
                 let x: f32 = parts[2].parse().unwrap_or(0.0);
                 let y: f32 = parts[3].parse().unwrap_or(0.0);
                 let z: f32 = parts[4].parse().unwrap_or(0.0);
