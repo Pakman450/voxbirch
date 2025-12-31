@@ -1,5 +1,6 @@
 use voxelizer::voxelize;
 use voxelizer::read_mol2_file;
+use voxelizer::write_cluster_mol_ids;
 
 use voxelizer::birch::VoxBirch;
 
@@ -28,11 +29,11 @@ struct Args {
     origin: Vec<f32>,
 
     // threshold
-    #[arg(short, long, default_value_t = 0.5)]
+    #[arg(short, long, default_value_t = 0.75)]
     threshold: f32,
 
     // max_branches
-    #[arg(short, long, default_value_t = 50)]
+    #[arg(short, long, default_value_t = 75)]
     max_branches: usize,
 }
 
@@ -174,6 +175,11 @@ fn main() {
     vb.fit(&input_matrix, true);
 
 
+    // Get results after clustering. 
+    let cluster_mol_ids = vb.get_cluster_mol_ids();
+    let path_cluster_ids: String = String::from("./clusters_mol_ids.txt");
+    let write_to_path = Path::new(&path_cluster_ids);
+    let _ = write_cluster_mol_ids(&write_to_path, &cluster_mol_ids);
 
     // Get the elapsed time
     let duration = start_time.elapsed();
