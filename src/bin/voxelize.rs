@@ -8,6 +8,8 @@ use std::path::{Path};
 use nalgebra::DMatrix;
 use clap::Parser;
 use std::time::{Instant};
+use log::{error, warn, info, debug, trace};
+use std::env;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -29,12 +31,16 @@ struct Args {
     origin: Vec<f32>,
 
     // threshold
-    #[arg(short, long, default_value_t = 0.65)]
+    #[arg(short, long, default_value_t = 0.70)]
     threshold: f32,
 
     // max_branches
     #[arg(short, long, default_value_t = 50)]
     max_branches: usize,
+
+    // verbosity level
+    #[arg(short, long, default_value_t = false)]
+    verbosity: bool,
 }
 
 
@@ -66,6 +72,8 @@ fn main() {
 
     // Print the ASCII art
     println!("{}", ascii_art);
+    println!("Code Written by: Steven Pak\n");
+
     let args = Args::parse();
 
     // Argument unpacking
@@ -79,7 +87,24 @@ fn main() {
     let resolution = args.resolution;
     let threshold = args.threshold;
     let max_branches = args.max_branches;
+    let verbose = args.verbosity;
     // let method = args.method;
+
+    // Initialize the logger with appropriate level
+    if verbose {
+        // Set RUST_LOG to debug level if verbose
+        env::set_var("RUST_LOG", "debug");
+    } else {
+        env::set_var("RUST_LOG", "info");
+    }
+
+    env_logger::init();
+
+    error!("This is an error.");
+    warn!("This is a warning.");
+    info!("This is normal info.");
+    debug!("This is debug info (visible only with --verbose).");
+    trace!("Trace info (only with RUST_LOG=trace).");
 
     // Read MOL2 file
     let path = Path::new(&file_path);

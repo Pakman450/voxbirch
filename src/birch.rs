@@ -3,6 +3,7 @@ use nalgebra::{DMatrix, RowVector, RowDVector, VecStorage, U1, Dyn};
 use std::any::TypeId;
 use std::rc::Rc;
 use std::cell::RefCell;
+use log::{error, warn, info, debug, trace};
 
 #[derive(Debug)]
 enum Parent {
@@ -279,10 +280,7 @@ fn calc_centroid( ls: &Vec<f32>, nj: u32, max_branches: usize, n_features: usize
 
 
     for (j, &x) in ls.iter().enumerate() {
-        if nj == 51 && threshold == 25.5 && x > 0.0 {
-            println!("in calc_centroid: x > threshold? {}, {}",x, threshold);
 
-        }
         if x > threshold {
             println!("in calc_centroid, GREATER. x > threshold {}, {}",x, threshold);
         }
@@ -919,7 +917,11 @@ impl VoxBirch {
         singly: bool) -> &mut VoxBirch 
         {
 
-
+        // error!("1This is an error.");
+        // warn!("2This is a warning.");
+        // info!("3This is normal info.");
+        // debug!("4This is debug info (visible only with --verbose).");
+        // trace!("5Trace info (only with RUST_LOG=trace).");
 
         let n_features = grids.ncols();
 
