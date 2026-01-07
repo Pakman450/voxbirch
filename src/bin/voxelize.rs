@@ -31,7 +31,7 @@ struct Args {
     origin: Vec<f32>,
 
     // threshold
-    #[arg(short, long, default_value_t = 0.70)]
+    #[arg(short, long, default_value_t = 0.65)]
     threshold: f32,
 
     // max_branches
@@ -94,17 +94,12 @@ fn main() {
     if verbose {
         // Set RUST_LOG to debug level if verbose
         env::set_var("RUST_LOG", "debug");
-    } else {
+        env::set_var("RUST_LOG", "warn");
         env::set_var("RUST_LOG", "info");
-    }
-
+        env::set_var("RUST_LOG", "error");
+        env::set_var("RUST_LOG", "trace");
+    } 
     env_logger::init();
-
-    error!("This is an error.");
-    warn!("This is a warning.");
-    info!("This is normal info.");
-    debug!("This is debug info (visible only with --verbose).");
-    trace!("Trace info (only with RUST_LOG=trace).");
 
     // Read MOL2 file
     let path = Path::new(&file_path);
@@ -161,8 +156,6 @@ fn main() {
     println!("Voxel Grid Resolution: {}", resolution);
     println!("Voxel Grid Number of grids of the first grid: {}", grids[0].data.len());
 
-    
-    println!("\nStarting the VoxBirch algorithm...");
     let mut vb = VoxBirch::new(
         threshold, // threshold
         max_branches // branches
@@ -200,8 +193,6 @@ fn main() {
     for grids in grids.iter() {
         titles.push(grids.title.clone());
     }
-
-    println!("Fitting Voxel Grids into VoxBirch...");
 
     // start clustering
     vb.fit(&input_matrix, titles, true);

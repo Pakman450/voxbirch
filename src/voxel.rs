@@ -59,9 +59,7 @@ pub fn voxelize(
         
             let index = grid.voxel_index(ix, iy, iz);
 
-            
-
-            grid.data[index] += 1;
+            grid.data[index] = 1;
 
         }
 
