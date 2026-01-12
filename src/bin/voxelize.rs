@@ -149,7 +149,7 @@ fn main() {
     // Get the number of columns (which is the length of the data in each VoxelGrid)
     let num_cols = grids[0].data.len();  // Assuming all VoxelGrids have the same length of data
 
-    println!("Shape of data: ({} molecules, {} bits)", num_rows, num_cols);
+    println!("Shape of data: ({} molecules, {} voxels)", num_rows, num_cols);
 
     // Initialize VoxBirch
     let mut vb = VoxBirch::new(

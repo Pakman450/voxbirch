@@ -24,10 +24,6 @@ impl VoxelGrid {
 
 }
 
-// Example "voxelizer": fills grid with a single value
-// FIX: currently only for positive numbers
-// I have to Shift coordinates to positive first
-// I should find the minimium coordinates first and shift accordingly
 pub fn voxelize(
     l_mols: Vec<VoxMol>,
     dims: [usize; 3],
@@ -40,6 +36,11 @@ pub fn voxelize(
     // create a list of voxel grids based on number of molecules
 
     let mut grids = Vec::<VoxelGrid>::new();
+
+    let mut occupied_voxels = 0;
+    let mut voxel_sum = 0;
+    let mut num_heavy_atoms = 0;
+
 
     for mol in l_mols.iter() {
 
@@ -59,20 +60,48 @@ pub fn voxelize(
         
             let index = grid.voxel_index(ix, iy, iz);
 
+            // TODO:now I want the indexes around the origin of ix,iy,iz 
+            // to spread the voxelization to neighboring voxels
+            // for simplicity, we will just do a 3x3x3 cube around the voxel
+            // In a real application, you might want to use a more sophisticated method
+            // such as a Gaussian spread or a sphere of influence
+            // but for now, let's just increment the neighboring voxels
+            for dx in -1..=1 {
+                for dy in -1..=1 {
+                    for dz in -1..=1 {
+                        let nx = ix as isize + dx;
+                        let ny = iy as isize + dy;
+                        let nz = iz as isize + dz;
+
+                        // Check bounds
+                        if nx >= 0 && nx < dims[0] as isize &&
+                           ny >= 0 && ny < dims[1] as isize &&
+                           nz >= 0 && nz < dims[2] as isize {
+                            let nindex = grid.voxel_index(nx as usize, ny as usize, nz as usize);
+                            grid.data[nindex] += 1;
+                        }
+                    }
+                }
+            }
+            num_heavy_atoms += 1;
             grid.data[index] += 1;
+            voxel_sum += 1;
+
+            if grid.data[index] == 1 {
+                occupied_voxels += 1;
+            }
 
         }
 
         grids.push(grid);
     }
 
-    let grid = &grids[0];  // for now just return the first grid
-    // print out the number of occupied voxels
-    let occupied_voxels = grid.data.iter().filter(|&&v| v > 0).count();
-    println!("Number of occupied voxels: {}", occupied_voxels);
-
-    // print out the sum of all voxel values
-    let voxel_sum: usize = grid.data.iter().map(|&v| v as usize).sum();
+    let total_voxels = dims[0] * dims[1] * dims[2] * grids.len();
+    println!(
+        "Total number of voxels =\n\tTotal number of occupied voxels + Total number of unoccupied voxels:\n\t{} = {} + {}",
+        total_voxels, occupied_voxels, total_voxels - occupied_voxels
+    );
+    println!("Total number of heavy atoms voxelized: {}", num_heavy_atoms);
     println!("Sum of all voxel values: {}", voxel_sum);
 
     grids
