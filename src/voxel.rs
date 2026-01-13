@@ -4,7 +4,8 @@ use crate::file_io::VoxMol;
 pub struct VoxelGrid {
     pub title : String,
     pub dims: [usize; 3],
-    pub data: Vec<u8>,    
+    pub data: Vec<u32>,    
+    pub condensed_data: Vec<u32>
 }
 
 impl VoxelGrid {
@@ -14,6 +15,7 @@ impl VoxelGrid {
             title: String::new(),
             dims,
             data: vec![0; size],
+            condensed_data: Vec::<u32>::new()
         }
     }
 
@@ -22,6 +24,9 @@ impl VoxelGrid {
         x + self.dims[0] * (y + self.dims[1] * z)
     }
 
+    fn push_condensed_data(&mut self, datum: u32) {
+        self.condensed_data.push(datum);
+    }
 }
 
 pub fn voxelize(
@@ -40,7 +45,7 @@ pub fn voxelize(
     let mut occupied_voxels = 0;
     let mut voxel_sum = 0;
     let mut num_heavy_atoms = 0;
-
+    let mut condense_data_idx = Vec::<u32>::new();
 
     for mol in l_mols.iter() {
 
@@ -66,29 +71,39 @@ pub fn voxelize(
             // In a real application, you might want to use a more sophisticated method
             // such as a Gaussian spread or a sphere of influence
             // but for now, let's just increment the neighboring voxels
-            for dx in -1..=1 {
-                for dy in -1..=1 {
-                    for dz in -1..=1 {
-                        let nx = ix as isize + dx;
-                        let ny = iy as isize + dy;
-                        let nz = iz as isize + dz;
+            // for dx in -1..=1 {
+            //     for dy in -1..=1 {
+            //         for dz in -1..=1 {
+            //             let nx = ix as isize + dx;
+            //             let ny = iy as isize + dy;
+            //             let nz = iz as isize + dz;
 
-                        // Check bounds
-                        if nx >= 0 && nx < dims[0] as isize &&
-                           ny >= 0 && ny < dims[1] as isize &&
-                           nz >= 0 && nz < dims[2] as isize {
-                            let nindex = grid.voxel_index(nx as usize, ny as usize, nz as usize);
-                            grid.data[nindex] += 1;
-                        }
-                    }
-                }
-            }
+            //             // Check bounds
+            //             if nx >= 0 && nx < dims[0] as isize &&
+            //                ny >= 0 && ny < dims[1] as isize &&
+            //                nz >= 0 && nz < dims[2] as isize {
+                            
+            //                 let nindex = grid.voxel_index(
+            //                     nx as usize, 
+            //                     ny as usize, 
+            //                     nz as usize
+            //                 );
+
+            //                 grid.data[nindex] += 1;
+            //             }
+            //         }
+            //     }
+            // }
             num_heavy_atoms += 1;
             grid.data[index] += 1;
             voxel_sum += 1;
 
             if grid.data[index] == 1 {
                 occupied_voxels += 1;
+                if !condense_data_idx.contains(&(index as u32)) {
+                    condense_data_idx.push(index as u32);
+                }
+                
             }
 
         }
@@ -96,10 +111,26 @@ pub fn voxelize(
         grids.push(grid);
     }
 
+    for grid in & mut grids{
+        for &ind in & condense_data_idx {
+
+            grid.push_condensed_data(grid.data[ind as usize]);
+        }
+        
+    }
+
     let total_voxels = dims[0] * dims[1] * dims[2] * grids.len();
     println!(
         "Total number of voxels =\n\tTotal number of occupied voxels + Total number of unoccupied voxels:\n\t{} = {} + {}",
         total_voxels, occupied_voxels, total_voxels - occupied_voxels
+    );    
+    println!(
+        "Total number of occupied voxels for one grid without condensation: = {}", 
+        grids[0].data.len()
+    );
+    println!(
+        "Total number of occupied voxels across all grids: = {}", 
+        condense_data_idx.len()
     );
     println!("Total number of heavy atoms voxelized: {}", num_heavy_atoms);
     println!("Sum of all voxel values: {}", voxel_sum);

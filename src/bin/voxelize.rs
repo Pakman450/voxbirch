@@ -40,9 +40,14 @@ struct Args {
     #[arg(short, long, default_value_t = 50)]
     max_branches: usize,
 
+    // no_condense
+    #[arg(long)]
+    no_condense: bool,
+
     /// Verbosity level
     #[arg(short, long, action = clap::ArgAction::Count, default_value_t = 0)]
     verbosity: u8,
+
 }
 
 
@@ -67,6 +72,7 @@ fn main() {
     let resolution = args.resolution;
     let threshold = args.threshold;
     let max_branches = args.max_branches;
+    let no_condense = args.no_condense;
     let verbosity = args.verbosity;
 
     // Initialize the logger with appropriate level
@@ -113,6 +119,7 @@ fn main() {
     println!("Voxel Grid Origin: ({}, {}, {})", x0, y0, z0);
     println!("Thresold: {}", threshold);
     println!("Max branches: {}", max_branches);
+    println!("Condense Voxel Grids: {}", !no_condense);
     println!("################################################");
 
     println!("\nGrabbing recommended voxelization parameters...");
@@ -146,8 +153,13 @@ fn main() {
 
     // Get the number of rows (which is the number of VoxelGrids)
     let num_rows = grids.len();
-    // Get the number of columns (which is the length of the data in each VoxelGrid)
-    let num_cols = grids[0].data.len();  // Assuming all VoxelGrids have the same length of data
+    let mut num_cols;
+
+    if !no_condense {
+        num_cols = grids[0].condensed_data.len(); 
+    } else{
+        num_cols = grids[0].data.len(); 
+    }
 
     println!("Shape of data: ({} molecules, {} voxels)", num_rows, num_cols);
 
@@ -165,10 +177,19 @@ fn main() {
 
     let mut titles: Vec<String> = Vec::new();
 
-    // Fill the matrix with the data from each VoxelGrid
-    for (i, grids) in grids.iter().enumerate() {
-        for (j, &value) in grids.data.iter().enumerate() {
-            input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
+    if !no_condense {
+        // Fill the matrix with the data from each VoxelGrid
+        for (i, grids) in grids.iter().enumerate() {
+            for (j, &value) in grids.condensed_data.iter().enumerate() {
+                input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
+            }
+        }
+    } else{
+        // Fill the matrix with the data from each VoxelGrid
+        for (i, grids) in grids.iter().enumerate() {
+            for (j, &value) in grids.data.iter().enumerate() {
+                input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
+            }
         }
     }
 
