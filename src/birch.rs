@@ -368,17 +368,46 @@ fn find_closest_subluster(
 
     let mut sim_matrix = a.clone();
 
+    // BUG: this is a tanimoto similarity matrix for bit 0/1 values
+    // I need to get a similarit scoring for real values as well.
     // generate sim matrix
-    for i in 0..sim_matrix.nrows() {
+    for i in 0..a.nrows() {
         let denom = row_sums[i] + set_bits;
-        for j in 0..sim_matrix.ncols() {
+        for j in 0..a.ncols() {
             sim_matrix[(i,j)] = 
-                sim_matrix[(i,j)] / (denom - sim_matrix[(i,j)]);
+                a[(i,j)] / (denom - a[(i,j)]);
+            debug!(
+                "sim_matrix[({},{})] = {}
+                a[(i,j)] = {}, 
+                denom = {}, 
+                row_sums[i] = {},
+                set_bits = {}",
+                i, j, sim_matrix[(i,j)], 
+                a[(i,j)], 
+                denom, 
+                row_sums[i], 
+                set_bits
+            );
+            debug_assert!(sim_matrix[(i,j)] >= 0.0);
         }
     }
 
     let mut max_val = f32::MIN;
     let mut closest_index = (0,0);
+
+
+    debug!("find_closest_subluster: 
+    centroids shape = {:?}, 
+    centroid shape = {:?}, 
+    sim_matrix shape = {:?}, 
+    sim_matrix = {},
+    set_bits = {}", 
+        centroids.shape(),
+        centroid.shape(),
+        sim_matrix.shape(),
+        sim_matrix,
+        set_bits
+    );
 
     // Find index to the maximum value. 
     for i in 0..sim_matrix.nrows() {
@@ -433,6 +462,11 @@ impl BFNode {
     pub fn append_subcluster (&mut self, subcluster: BFSubcluster) {
        
         // This also returns the index for the last subcluster via index. 
+        // We need this to update the init_centroids and centroids matrices.
+        // remember n_samples is zero-indexed. so 5 means the 6th index. 
+        // This is important for copying the centroid row to the correct index.
+        // n_samples is actually used to update centroid matrices for 
+        // the newly appended subcluster.
         let n_samples: usize = match &self.subclusters {
             Some(subclusters) => subclusters.len(),
             None => 0,
@@ -440,19 +474,14 @@ impl BFNode {
 
         // --- take the centroid BEFORE moving subcluster ---
         let centroid = subcluster.centroid.as_ref().unwrap().clone();
-        // let centroid_row = centroid.transpose(); // 1×D
 
+        // append the subcluster, which is gonna the n_samples index now.
         match &mut self.subclusters {
             Some(subclusters) => subclusters.push(subcluster),
             None => self.subclusters = Some(vec![subcluster]),
         };
 
-       let after_n_samples: usize = match &self.subclusters {
-            Some(subclusters) => subclusters.len(),
-            None => 0,
-        };
-
-        debug!("subclusters.len() = {}, after = {}", n_samples , after_n_samples);
+        debug!("subclusters.len() = {}, after = {}", n_samples , &self.subclusters.as_ref().unwrap().len() );
 
         // NOTE. THIS IS DIFFERENT FROM ORIGINAL CODE
         // self.init_centroids.as_mut().unwrap().row_mut(n_samples).copy_from(&centroid.row(0));
@@ -461,7 +490,7 @@ impl BFNode {
             self.init_centroids.as_mut().unwrap().row_mut(n_samples).copy_from(&centroid.row(0));
         } else {
             // Handle the error, possibly initialize more rows or log a message
-            error!("n_samples out of bounds. Matrix has {} rows, but tried to access row {}", num_rows, n_samples);
+            error!("n_samples out of bounds. init_centroids has {} rows, but tried to access {}th row", num_rows, n_samples+1);
         }
 
         // I am gonna keep this here for now.
@@ -549,9 +578,13 @@ impl BFNode {
             self.subclusters.as_mut().unwrap()[row_idx].child.is_none()
         );
 
-        let closest_node = self.subclusters.as_mut().unwrap()[row_idx].child.is_none();
+        let closest_node_is_none = self.subclusters
+            .as_mut()
+            .unwrap()[row_idx]
+            .child
+                .is_none();
 
-        if closest_node {
+        if closest_node_is_none {
             let merged = self.subclusters.as_mut().unwrap()[row_idx].merge_subcluster(
                 subcluster.clone(), max_branches, threshold
             );
@@ -618,6 +651,7 @@ impl BFNode {
                 singly
             );
 
+            // this includes append_subcluster
             self.update_split_subclusters(
                 row_idx,
                 new_subcluster1, 
