@@ -153,7 +153,7 @@ fn main() {
 
     println!("\nVoxelizing...");
     // Voxelization of molecules's xyz's
-    let grids = voxelize(l_mols, [dimx, dimy, dimz], resolution, x0, y0, z0); 
+    let grids = voxelize(&l_mols, [dimx, dimy, dimz], resolution, x0, y0, z0); 
 
     // Get the number of rows (which is the number of VoxelGrids)
     let num_rows = grids.len();

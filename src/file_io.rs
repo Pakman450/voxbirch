@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::fs::File;
 use std::io::{self, BufRead, BufWriter, Write, Result};
+
+#[derive(Clone)]
 pub struct VoxMol {
     pub title: String,
     pub x: Vec<f32>,

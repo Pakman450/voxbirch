@@ -30,7 +30,7 @@ impl VoxelGrid {
 }
 
 pub fn voxelize(
-    l_mols: Vec<VoxMol>,
+    l_mols: &Vec<VoxMol>,
     dims: [usize; 3],
     rs: f32,
     x0: f32,
