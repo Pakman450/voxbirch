@@ -1,10 +1,10 @@
 [package]
 name = "voxbirch"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "What your CLI does"
 license = "MIT"
-repository = "https://github.com/Pakman450/voxfing"
+repository = "https://github.com/Pakman450/voxbirch"
 
 [[bin]]
 name = "voxbirch"
