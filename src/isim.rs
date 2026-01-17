@@ -1,5 +1,5 @@
 use crate::voxel::VoxelGrid;
-use log::{error, warn, info, debug, trace};
+use log::{debug};
 
 // Itani similarity index for binary voxel grids
 // NOTE: assumes all grids have the same dimensions and 

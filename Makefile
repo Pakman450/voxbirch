@@ -4,3 +4,6 @@ install:
 
 clean:
 	cargo clean && rm -rf ./bin
+
+fresh:
+	make clean && make install
