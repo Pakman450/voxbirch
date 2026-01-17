@@ -1,8 +1,8 @@
 
 use chrono::Local;
+use std::io::Write;
 
-
-pub fn print_ascii_art() {
+pub fn print_ascii_art( stdout: & mut Box<dyn Write>) {
 
 
     let start_time = Local::now();
@@ -25,5 +25,9 @@ pub fn print_ascii_art() {
                                  `----'      ---`-'          `----'              
 Code Written by: Steven Pak
                                  "#;
-    println!("{}\nStart date-time: {}", ascii_art, start_time.format("%Y-%m-%d %H:%M:%S"));
+    writeln!(
+        stdout,
+        "{}\nStart date-time: {}", 
+        ascii_art, start_time.format("%Y-%m-%d %H:%M:%S")
+    ).unwrap();
 }

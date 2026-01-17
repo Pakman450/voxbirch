@@ -31,7 +31,6 @@ impl VoxMol {
 
 //
 pub fn read_mol2_file(path: &Path) -> Result<Vec<VoxMol>> {
-    println!("Reading MOL2 file from: {:?}", path);
 
     let file = File::open(path)?;
     let reader = io::BufReader::new(file);
@@ -101,8 +100,6 @@ pub fn read_mol2_file(path: &Path) -> Result<Vec<VoxMol>> {
 }
 
 pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<String>>) -> Result<()>  {
-    
-    println!("Writing cluster mol ids to: {:?}", path);
 
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);

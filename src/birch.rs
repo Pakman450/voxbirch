@@ -1,12 +1,14 @@
 use nalgebra::{DMatrix, RowVector, RowDVector, VecStorage, U1, Dyn};
-
 use core::panic;
 use std::{any::TypeId};
 use std::rc::Rc;
 use std::cell::RefCell;
 use log::{error, warn, info, debug, trace};
+use std::fs::File;
+use std::io::{Write, BufWriter};
 
 use crate::isim::{jt_isim_real, jt_isim_binary};
+use crate::args::ArgsV;
 
 #[derive(Debug)]
 enum Parent {
@@ -688,7 +690,8 @@ impl BFNode {
     pub fn insert_bf_subcluster(
         &mut self,
         subcluster: BFSubcluster,
-        parent: BFSubcluster
+        parent: BFSubcluster,
+        write_out: &mut impl Write
     ) -> bool {
 
         debug!("
@@ -748,7 +751,7 @@ impl BFNode {
 
         if closest_node_is_none {
             let merged = self.subclusters.as_mut().unwrap()[row_idx].merge_subcluster(
-                subcluster.clone(), max_branches, threshold
+                subcluster.clone(), max_branches, threshold, write_out
             );
 
             debug!(
@@ -806,7 +809,8 @@ impl BFNode {
                     .borrow_mut()
                     .insert_bf_subcluster(
                         subcluster.clone(),
-                        parent.clone()
+                        parent.clone(),
+                        write_out,
                 );
         
         if split_child {
@@ -1002,9 +1006,10 @@ impl BFSubcluster {
         & mut self, 
         nominee_cluster: BFSubcluster,
         max_branches: usize,
-        threshold: f32 
+        threshold: f32,
+        write_out: & mut impl Write
     ) -> bool {
-        
+
         let new_ls: Vec<f32> = self.ls.clone().unwrap().iter()
             .zip(nominee_cluster.ls.clone().unwrap().iter())
             .map(|(x, y)| *x + *y)
@@ -1042,14 +1047,19 @@ impl BFSubcluster {
             self.nj as usize, 
             nominee_cluster.nj as usize
         ) {
-            println!(" Accepted between clusters with sizes {} and {}", self.nj, nominee_cluster.nj);
+
+            writeln!(
+                write_out, 
+                " Accepted between clusters with sizes {} and {}", self.nj, nominee_cluster.nj
+            ).unwrap();
+
             self.nj = new_n;
             self.ls = Some(new_ls);
             self.ss = Some(new_ss);
             self.centroid = Some(new_centroid); 
             // self.mol_indices = self.mol_indices + nominee_cluster.mol_indices;
             if let (Some(a), Some(b)) = (self.mols.as_mut(), nominee_cluster.mols.as_ref()) {
-                println!("  Merging mols {:?} with {:?}", a, b);
+                writeln!(write_out,"  Merging mols {:?} with {:?}", a, b).unwrap();
                 a.extend_from_slice(b);
             }
             return true
@@ -1091,12 +1101,13 @@ impl VoxBirch {
         &mut self, 
         grids : &DMatrix<f32>, 
         titles: Vec<String>, 
+        stdout: & mut Box<dyn Write>
         ) -> &mut VoxBirch 
         {
 
         assert_eq!(grids.nrows(), titles.len());
 
-        println!("\n#############################\nFitting grids with the VoxBirch Clustering\n#############################\n\n");
+        writeln!(stdout,"\n#############################\nFitting grids with the VoxBirch Clustering\n#############################\n\n").unwrap();
         let n_features = grids.ncols();
 
         if self.first_call {
@@ -1134,14 +1145,14 @@ impl VoxBirch {
 
         }
 
+
         for iter in 0..grids.nrows() {
-            
+
             let mol_title = titles.get(iter).unwrap().to_string();
 
-            println!("\nInserting {}: {}/{}", 
+            writeln!(stdout, "\nInserting {}: {}/{}", 
                 mol_title, 
-                iter+1, grids.nrows()
-            );
+                iter+1, grids.nrows()).unwrap();
 
             let grid: Option<Vec<f32>> = Some(
                 grids.row(iter).iter().copied().collect()
@@ -1175,7 +1186,8 @@ impl VoxBirch {
                     // Here, BitBirch feeds in subcluster.parent_
                     // But since Rust is a strongly typed language
                     // we must send in BFSubcluster rather than. BFNode.
-                    subcluster.clone()
+                    subcluster.clone(),
+                    stdout
             );
 
             if split {

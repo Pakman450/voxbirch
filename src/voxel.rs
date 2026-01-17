@@ -1,4 +1,5 @@
 use crate::file_io::VoxMol;
+use std::io::Write;
 
 #[derive(Clone)]
 pub struct VoxelGrid {
@@ -35,7 +36,8 @@ pub fn voxelize(
     rs: f32,
     x0: f32,
     y0: f32,
-    z0: f32
+    z0: f32,
+    stdout: & mut Box<dyn Write>
 ) -> Vec::<VoxelGrid> {
 
     // create a list of voxel grids based on number of molecules
@@ -120,20 +122,29 @@ pub fn voxelize(
     }
 
     let total_voxels = dims[0] * dims[1] * dims[2] * grids.len();
-    println!(
+    writeln!(
+        stdout,
         "Total number of voxels =\n\tTotal number of occupied voxels + Total number of unoccupied voxels:\n\t{} = {} + {}",
         total_voxels, occupied_voxels, total_voxels - occupied_voxels
-    );    
-    println!(
+    ).unwrap();    
+    writeln!(
+        stdout,
         "Total number of occupied voxels for one grid without condensation: = {}", 
         grids[0].data.len()
-    );
-    println!(
+    ).unwrap();
+    writeln!(
+        stdout,
         "Total number of occupied voxels across all grids: = {}", 
         condense_data_idx.len()
-    );
-    println!("Total number of heavy atoms voxelized: {}", num_heavy_atoms);
-    println!("Sum of all voxel values: {}", voxel_sum);
+    ).unwrap();
+    writeln!(
+        stdout,
+        "Total number of heavy atoms voxelized: {}", num_heavy_atoms
+    ).unwrap();
+    writeln!(
+        stdout,
+        "Sum of all voxel values: {}", voxel_sum
+    ).unwrap();
 
     grids
 }

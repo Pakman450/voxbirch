@@ -4,12 +4,15 @@ pub mod isim;
 pub mod birch;
 pub mod ascii;
 pub mod utils;
+pub mod args;
 
 pub use voxel::{voxelize, VoxelGrid, get_recommended_info};
 pub use file_io::{read_mol2_file, write_cluster_mol_ids};
 pub use isim::{jt_isim_real, jt_isim_binary};
 pub use utils::calc_time_breakdown;
 pub use birch::VoxBirch;
+pub use args::ArgsV;
+ 
 
 #[cfg(test)]
 mod tests {
@@ -33,6 +36,10 @@ mod tests {
     #[test]
     fn voxelize_mol(){
         use std::path::Path;
+        use std::io::Write;
+
+        let mut stdout: Box<dyn Write> = Box::new(std::io::sink());
+
         let file_path = 
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
@@ -46,7 +53,8 @@ mod tests {
             voxelize(
                 &l_mols, 
                 [12, 3, 5], 
-                2.0, 0.0, 0.0, 0.0
+                2.0, 0.0, 0.0, 0.0,
+                & mut stdout
             ); 
 
         let condense_sum: u32 = grids[0].condensed_data.iter().sum();
@@ -78,6 +86,10 @@ mod tests {
     #[test]
     fn voxelize_two_mols(){
         use std::path::Path;
+        use std::io::Write;
+
+        let mut stdout: Box<dyn Write> = Box::new(std::io::sink());
+
         let file_path = 
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
@@ -89,7 +101,8 @@ mod tests {
             voxelize(
                 &l_mols, 
                 [12, 3, 5], 
-                2.0, 0.0, 0.0, 0.0
+                2.0, 0.0, 0.0, 0.0,
+                &mut stdout
             ); 
         
         let l_titles = vec!["ZINC000004771104", "ZINC000108479470"];
@@ -166,9 +179,27 @@ mod tests {
     fn cluster_and_writeout(){
         use std::path::Path;
         use nalgebra::DMatrix;
+        use std::io::Write;
+
+        let args = ArgsV {
+            path: "test_files/two.mol2".into(),
+            dims: vec![20,20,20],
+            resolution: 2.0,
+            origin: vec![0.0,0.0,0.0],
+            threshold: 0.65,
+            max_branches: 50,
+            clustered_ids_path: Some(String::from("./clustered_mol_ids.txt")),
+            output_path: Some(String::from("./voxbirch.out")),
+            no_condense: false,
+            verbosity: 0,
+            quiet: true
+        };
+
+        let mut stdout: Box<dyn Write> = Box::new(std::io::sink());
+
 
         let file_path = 
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(&args.path);
 
         let l_mols = 
             read_mol2_file(Path::new(&file_path))
@@ -178,7 +209,8 @@ mod tests {
             voxelize(
                 &l_mols, 
                 [12, 3, 5], 
-                2.0, 0.0, 0.0, 0.0
+                2.0, 0.0, 0.0, 0.0,
+                & mut stdout
             ); 
 
         let mut titles: Vec<String> = Vec::new();
@@ -214,7 +246,7 @@ mod tests {
             }
         }
 
-        vb.fit(&input_matrix, titles);
+        vb.fit(&input_matrix, titles, & mut stdout);
 
         let cluster_mol_ids: Vec<Vec<String>> = vb.get_cluster_mol_ids();
 
