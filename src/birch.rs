@@ -1,6 +1,5 @@
 use nalgebra::{DMatrix, RowVector, RowDVector, VecStorage, U1, Dyn};
 use core::panic;
-use std::fmt::write;
 use std::{any::TypeId};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -9,11 +8,6 @@ use std::io::{Write};
 
 use crate::isim::{jt_isim_real, jt_isim_binary};
 
-#[derive(Debug)]
-enum Parent {
-    // Node(BFNode),
-    Subcluster(BFSubcluster)
-}
 
 #[derive(Clone, Copy, Debug)]
 enum MergeCriterion {
@@ -887,7 +881,6 @@ struct BFSubcluster {
     mols: Option<Vec<String>>,
     // cj: Option<Vec<f32>>,
     child: Option<Rc<RefCell<BFNode>>>,
-    parent: Option<Rc<RefCell<Parent>>>,
     centroid: Option<DMatrix<f32>>,
 }
 
@@ -901,9 +894,7 @@ impl BFSubcluster {
                 ls: Some(vec![0.0; n_features]),
                 ss: Some(vec![0.0; n_features]),
                 mols: Some(Vec::<String>::new()),
-                // cj: None,
                 child: None,
-                parent: None,
                 centroid:  Some(DMatrix::<f32>::zeros(max_branches+1, n_features)),
             }
             
@@ -929,9 +920,7 @@ impl BFSubcluster {
                     .collect()
                 ),
                 mols: Some(mol_titles),
-                // cj: Some(linear_sum.clone().unwrap()),
                 child: None,
-                parent: None,
                 centroid: Some(centroid_zeros),
             }
 
@@ -947,8 +936,6 @@ impl BFSubcluster {
 
         self.nj += subcluster.nj;
 
-
-        // NOTE: the original wanted to `self.linear_sum_ += subcluster.linear_sum_`
         // This IS the same as elementwise increments between two ndarrays 
         if let (Some(a), Some(b)) = (self.ls.as_mut(), subcluster.ls.as_ref()) {
             assert_eq!(a.len(), b.len());
@@ -966,8 +953,7 @@ impl BFSubcluster {
             .collect()
         );
 
-        // NOTE: the original wanted to `self.mol_indices += subcluster.mol_indices`
-        // This is not the same as elementwise increments. This is an extension between two
+        // This is NOT the same as elementwise increments. This is an extension between two
         // arrays. 
         if let (Some(a), Some(b)) = (self.mols.as_mut(), subcluster.mols.as_ref()) {
 
