@@ -36,36 +36,6 @@ To clean up your binary, run
 make clean
 ```
 
-## Usage flags
-
-```
-Usage: voxbirch [OPTIONS] --path <PATH>
-
-Options:
-  -p, --path <PATH>
-          Path to the MOL2 file (required)
-  -d, --dims <DIMS>
-          Dimensions of the voxel grid (x, y, z), comma separated [default: 20,20,20]
-  -r, --resolution <RESOLUTION>
-          Resolution of the voxel grid in Angstroms [default: 2]
-  -o, --origin <ORIGIN>
-          Target origin x0 y0 z0 via comma separated string [default: 0.0,0.0,0.0]
-  -t, --threshold <THRESHOLD>
-          Threshold of similarity [default: 0.65]
-  -m, --max-branches <MAX_BRANCHES>
-          Number of max branches [default: 50]
-      --output-file-path <OUTPUT_FILE_PATH>
-          Clustered mol ids output name [default: ./clustered_mol_ids.txt]
-      --no-condense
-          Do not condense voxel grids. Leaving this out condenses grids
-  -v, --verbosity...
-          Verbosity level
-  -h, --help
-          Print help
-  -V, --version
-          Print version
-```
-
 ### Example commands
 
 If you want to cluster molecules with 10 max_branches:
@@ -75,4 +45,11 @@ voxbirch -p molecules.mol2 -m 10
 ```
 
 Then you should get a list of clustered molecules via id, `clusters_mol_ids.txt`
+
+If you must see the debug logs for the purposes of development:
+
+```
+voxbirch -p molecules.mol2 -vv > output.out 2>&1
+```
+
 
