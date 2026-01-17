@@ -23,8 +23,11 @@ mod tests {
         use std::path::Path;
         let file_path = String::from("./test_files/one.mol2");
 
-        let l_mols = 
-            read_mol2_file(Path::new(&file_path))
+        let (
+            l_mols,
+            _
+        ) = 
+            read_mol2_file(Path::new(&file_path),false)
             .expect("Failed to read MOL2 file");
         assert_eq!(
             l_mols.len(),
@@ -43,8 +46,11 @@ mod tests {
         let file_path = 
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
-        let l_mols = 
-            read_mol2_file(Path::new(&file_path))
+        let (
+            l_mols,
+            _
+        ) = 
+            read_mol2_file(Path::new(&file_path),false)
             .expect("Failed to read MOL2 file"); 
         
         let num_atoms = l_mols[0].num_atoms();
@@ -54,6 +60,8 @@ mod tests {
                 &l_mols, 
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
+                false,
+                &Vec::<String>::new(),
                 & mut stdout
             ); 
 
@@ -73,8 +81,11 @@ mod tests {
         let file_path = 
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
-        let l_mols = 
-            read_mol2_file(Path::new(&file_path))
+        let (
+            l_mols,
+            _
+        ) = 
+            read_mol2_file(Path::new(&file_path),false)
             .expect("Failed to read MOL2 file");
         assert_eq!(
             l_mols.len(),
@@ -93,8 +104,11 @@ mod tests {
         let file_path = 
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
-        let l_mols = 
-            read_mol2_file(Path::new(&file_path))
+        let (
+            l_mols,
+            _
+        )= 
+            read_mol2_file(Path::new(&file_path), false)
             .expect("Failed to read MOL2 file"); 
 
         let grids = 
@@ -102,7 +116,9 @@ mod tests {
                 &l_mols, 
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
-                &mut stdout
+                false,
+                &Vec::<String>::new(),
+                & mut stdout
             ); 
         
         let l_titles = vec!["ZINC000004771104", "ZINC000108479470"];
@@ -128,8 +144,11 @@ mod tests {
         let file_path = 
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
-        let l_mols = 
-            read_mol2_file(Path::new(&file_path))
+        let (
+            l_mols,
+            _
+        ) = 
+            read_mol2_file(Path::new(&file_path), false)
             .expect("Failed to read MOL2 file"); 
 
 
@@ -191,6 +210,7 @@ mod tests {
             clustered_ids_path: Some(String::from("./clustered_mol_ids.txt")),
             output_path: Some(String::from("./voxbirch.out")),
             no_condense: false,
+            atom_typing: false,
             verbosity: 0,
             quiet: true
         };
@@ -201,8 +221,11 @@ mod tests {
         let file_path = 
             Path::new(env!("CARGO_MANIFEST_DIR")).join(&args.path);
 
-        let l_mols = 
-            read_mol2_file(Path::new(&file_path))
+        let (
+            l_mols,
+            _
+        ) = 
+            read_mol2_file(Path::new(&file_path),false)
             .expect("Failed to read MOL2 file"); 
 
         let grids = 
@@ -210,6 +233,8 @@ mod tests {
                 &l_mols, 
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
+                false,
+                &Vec::<String>::new(),
                 & mut stdout
             ); 
 

@@ -35,6 +35,10 @@ pub struct ArgsV {
     #[arg(long, default_value = None)]
     pub output_path: Option<std::string::String>,
 
+    /// Add atom typing
+    #[arg(long)]
+    pub atom_typing: bool,
+
     /// Do not condense voxel grids. Leaving this out condenses grids.
     #[arg(long)]
     pub no_condense: bool,

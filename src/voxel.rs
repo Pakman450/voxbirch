@@ -10,8 +10,20 @@ pub struct VoxelGrid {
 }
 
 impl VoxelGrid {
-    pub fn new(dims: [usize; 3]) -> Self {
-        let size = dims[0] * dims[1] * dims[2];
+    pub fn new(
+        dims: [usize; 3], 
+        atom_typing: bool,
+        num_atom_types: usize
+    ) -> Self {
+
+        let size: usize = if atom_typing 
+        {
+            // Note: + 1 means "other" atom_types
+            dims[0] * dims[1] * dims[2] * (num_atom_types + 1)
+        } else {
+            dims[0] * dims[1] * dims[2]
+        };
+
         Self {
             title: String::new(),
             dims,
@@ -30,6 +42,22 @@ impl VoxelGrid {
     }
 }
 
+fn get_atom_typing_index(
+    ind: usize, 
+    all_atom_types: &Vec<String>,
+    atom_type: &String,
+) -> usize {
+
+    if let Some(shifted_idx) = all_atom_types.iter().position(|x| x == atom_type)
+    {
+        return ind + shifted_idx
+    }
+
+    ind + all_atom_types.len()
+
+}
+
+
 pub fn voxelize(
     l_mols: &Vec<VoxMol>,
     dims: [usize; 3],
@@ -37,6 +65,8 @@ pub fn voxelize(
     x0: f32,
     y0: f32,
     z0: f32,
+    atom_typing: bool,
+    all_atom_types: &Vec<String>,
     stdout: & mut Box<dyn Write>
 ) -> Vec::<VoxelGrid> {
 
@@ -48,10 +78,11 @@ pub fn voxelize(
     let mut voxel_sum = 0;
     let mut num_heavy_atoms = 0;
     let mut condense_data_idx = Vec::<u32>::new();
+    let num_atom_types = all_atom_types.len();
 
     for mol in l_mols.iter() {
 
-        let mut grid = VoxelGrid::new(dims);
+        let mut grid = VoxelGrid::new(dims, atom_typing, num_atom_types);
 
         grid.title = mol.title.clone();
 
@@ -65,37 +96,22 @@ pub fn voxelize(
             let iy = ((y - y0) / rs).floor() as usize;
             let iz = ((z - z0) / rs).floor() as usize;
         
-            let index = grid.voxel_index(ix, iy, iz);
+            let mut index = grid.voxel_index(ix, iy, iz);
 
+            if atom_typing {
+                index = get_atom_typing_index(
+                 index, 
+                 &all_atom_types,
+                 &mol.atom_types.as_ref().unwrap()[atom_idx]
+                );
+            }
             // TODO:now I want the indexes around the origin of ix,iy,iz 
             // to spread the voxelization to neighboring voxels
             // for simplicity, we will just do a 3x3x3 cube around the voxel
             // In a real application, you might want to use a more sophisticated method
             // such as a Gaussian spread or a sphere of influence
             // but for now, let's just increment the neighboring voxels
-            // for dx in -1..=1 {
-            //     for dy in -1..=1 {
-            //         for dz in -1..=1 {
-            //             let nx = ix as isize + dx;
-            //             let ny = iy as isize + dy;
-            //             let nz = iz as isize + dz;
 
-            //             // Check bounds
-            //             if nx >= 0 && nx < dims[0] as isize &&
-            //                ny >= 0 && ny < dims[1] as isize &&
-            //                nz >= 0 && nz < dims[2] as isize {
-                            
-            //                 let nindex = grid.voxel_index(
-            //                     nx as usize, 
-            //                     ny as usize, 
-            //                     nz as usize
-            //                 );
-
-            //                 grid.data[nindex] += 1;
-            //             }
-            //         }
-            //     }
-            // }
             num_heavy_atoms += 1;
             grid.data[index] += 1;
             voxel_sum += 1;
@@ -121,7 +137,17 @@ pub fn voxelize(
         
     }
 
-    let total_voxels = dims[0] * dims[1] * dims[2] * grids.len();
+    let total_voxels = if atom_typing {
+            dims[0] * dims[1] * dims[2] * ( num_atom_types + 1 ) * grids.len()
+    } else {
+            dims[0] * dims[1] * dims[2] * grids.len()
+    };
+
+    writeln!(
+        stdout,
+        "Total number of atom types per voxel: {}",
+        all_atom_types.len() + 1
+    ).unwrap(); 
     writeln!(
         stdout,
         "Total number of voxels =\n\tTotal number of occupied voxels + Total number of unoccupied voxels:\n\t{} = {} + {}",
@@ -129,8 +155,8 @@ pub fn voxelize(
     ).unwrap();    
     writeln!(
         stdout,
-        "Total number of occupied voxels for one grid without condensation: = {}", 
-        grids[0].data.len()
+        "Total number of occupied voxels for one grid without condensation: {}", 
+        grids[1].data.len()
     ).unwrap();
     writeln!(
         stdout,

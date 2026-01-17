@@ -68,6 +68,7 @@ fn main() {
     if args.clustered_ids_path.is_none() {
         clustered_mol_id_string = Some(String::from("./clustered_mol_ids.txt"));
     }
+    let atom_typing = args.atom_typing;
     let no_condense = args.no_condense;
     init_logging(args.verbosity);
     let quiet = args.quiet;
@@ -87,7 +88,10 @@ fn main() {
 
     // Read MOL2 file
     let path = Path::new(&file_path);
-    let l_mols = read_mol2_file(path).expect("Failed to read MOL2 file");
+    let (
+        l_mols,
+        all_atom_types
+     ) = read_mol2_file(path, atom_typing).expect("Failed to read MOL2 file");
 
     writeln!(stdout,"################################################").unwrap();
     writeln!(stdout,"MOL2 file path: {}", file_path).unwrap();
@@ -96,7 +100,8 @@ fn main() {
     writeln!(stdout,"Voxel Grid Resolution: {}", resolution).unwrap();
     writeln!(stdout,"Voxel Grid Origin: ({}, {}, {})", x0, y0, z0).unwrap();
     writeln!(stdout,"Thresold: {}", threshold).unwrap();
-    writeln!(stdout,"Max branches: {}", max_branches).unwrap();
+    writeln!(stdout,"Max Branches: {}", max_branches).unwrap();
+    writeln!(stdout,"Enforce Atom Typing: {}", atom_typing).unwrap();
     writeln!(stdout,"Condense Voxel Grids: {}", no_condense).unwrap();
     writeln!(stdout,"Quiet mode: {}", quiet).unwrap();
     writeln!(stdout,"################################################").unwrap();
@@ -128,7 +133,14 @@ fn main() {
 
     writeln!(stdout,"\nVoxelizing...").unwrap();
     // Voxelization of molecules's xyz's
-    let grids = voxelize(&l_mols, [dimx, dimy, dimz], resolution, x0, y0, z0, &mut stdout); 
+    let grids = voxelize(
+        &l_mols, 
+        [dimx, dimy, dimz], 
+        resolution, 
+        x0, y0, z0, 
+        atom_typing, &all_atom_types, 
+        &mut stdout
+    ); 
 
     let voxelize_duration: std::time::Duration = start_time.elapsed();
 

@@ -8,15 +8,30 @@ pub struct VoxMol {
     pub x: Vec<f32>,
     pub y: Vec<f32>,
     pub z: Vec<f32>,
+    pub atom_types: Option<Vec<String>>
 }
 
 impl VoxMol {
-    pub fn new() -> Self {
-        Self {
-            title: String::new(),
-            x: Vec::new(),
-            y: Vec::new(),
-            z: Vec::new(),
+    pub fn new(atom_typing: bool) -> Self {
+
+
+
+        if atom_typing {
+            return Self {
+                title: String::new(),
+                x: Vec::new(),
+                y: Vec::new(),
+                z: Vec::new(),
+                atom_types: Some(Vec::new())
+            }
+        } else {
+            return Self {
+                title: String::new(),
+                x: Vec::new(),
+                y: Vec::new(),
+                z: Vec::new(),
+                atom_types: None
+            }
         }
     }
 
@@ -30,17 +45,21 @@ impl VoxMol {
 }
 
 //
-pub fn read_mol2_file(path: &Path) -> Result<Vec<VoxMol>> {
+pub fn read_mol2_file(
+    path: &Path, atom_typing: bool
+) -> Result<(Vec<VoxMol>,Vec<String>)> {
 
     let file = File::open(path)?;
     let reader = io::BufReader::new(file);
 
     // Create Voxmol instance and a list to hold multiple molecules
-    let mut mol = VoxMol::new();
+    let mut mol = VoxMol::new(atom_typing);
     let mut l_mols: Vec<VoxMol> = Vec::new();
 
     // Flags to track sections in MOL2 file
     let mut in_atom_section: bool = false;
+
+    let mut all_atom_types: Vec<String> = Vec::new();
 
 
     // Read file line by line
@@ -67,11 +86,10 @@ pub fn read_mol2_file(path: &Path) -> Result<Vec<VoxMol>> {
         }
 
 
-
         if in_atom_section {
             // Parse atom line to extract x, y, z coordinates
             // Example line format (not actual MOL2 format):
-            // 1 C1 0.000 0.000 0.000 C
+            // 1 C1 0.000 0.000 0.000 C.3
             // Ignores Hs and only takes coordinate of heavy atoms.  
 
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -83,6 +101,27 @@ pub fn read_mol2_file(path: &Path) -> Result<Vec<VoxMol>> {
                 mol.x.push(x);
                 mol.y.push(y);
                 mol.z.push(z);
+                
+                if atom_typing {
+                    let at_type =  parts[5]
+                        .parse()
+                        .unwrap_or(
+                            "other".into()
+                        );
+
+                    if !all_atom_types.contains(&at_type) {
+                        all_atom_types.push(
+                            at_type.clone()
+                        );
+                    }
+
+                    mol.atom_types
+                    .as_mut()
+                    .unwrap()
+                    .push(
+                        at_type.clone()
+                    );
+                }
             }
         }
 
@@ -90,12 +129,12 @@ pub fn read_mol2_file(path: &Path) -> Result<Vec<VoxMol>> {
             // Finished reading one molecule's atoms
             l_mols.push(mol);
             // Reset for next molecule
-            mol = VoxMol::new();
+            mol = VoxMol::new(atom_typing);
         }
 
     }   
 
-    Ok(l_mols)
+    Ok((l_mols,all_atom_types))
     
 }
 
