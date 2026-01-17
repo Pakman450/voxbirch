@@ -72,7 +72,7 @@ fn set_merge(
                 );
 
                 if jt_radius >= threshold {
-                    writeln!(write_out, "Merging due to diameter criterion: jt_radius = {}", jt_radius);
+                    writeln!(write_out, "Merging due to diameter criterion: jt_radius = {}", jt_radius).unwrap();
                 }
 
                 jt_radius >= threshold
@@ -134,7 +134,6 @@ fn max_seperation(centroids: &DMatrix<f32>, max_branches: usize) -> (usize, usiz
     // NOTE: row_sum adds all rows in an elementwise fashion per column. very confusing... 
     let linear_sum: Vec<f32> = centroids.row_sum().as_slice().to_vec();
 
-    // BUG: Here we know that calc_centroids can return zero.
     let mut centroid = calc_centroid( 
         &linear_sum, 
         n_samples, 
