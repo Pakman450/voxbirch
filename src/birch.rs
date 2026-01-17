@@ -1,14 +1,13 @@
 use nalgebra::{DMatrix, RowVector, RowDVector, VecStorage, U1, Dyn};
 use core::panic;
+use std::fmt::write;
 use std::{any::TypeId};
 use std::rc::Rc;
 use std::cell::RefCell;
-use log::{error, warn, info, debug, trace};
-use std::fs::File;
-use std::io::{Write, BufWriter};
+use log::{error, warn, debug};
+use std::io::{Write};
 
 use crate::isim::{jt_isim_real, jt_isim_binary};
-use crate::args::ArgsV;
 
 #[derive(Debug)]
 enum Parent {
@@ -39,7 +38,10 @@ fn element_wise_add(vec1: &Vec<f32>, vec2: &Vec<f32>) -> Vec<f32> {
     result
 }
 
-fn set_merge(merge_criterion: MergeCriterion, tolerance: f32) -> Box<dyn Fn(
+fn set_merge(
+    merge_criterion: MergeCriterion, 
+    tolerance: f32
+) -> Box<dyn FnMut(
     f32, 
     &Vec<f32>, 
     &Vec<f32>,
@@ -49,11 +51,12 @@ fn set_merge(merge_criterion: MergeCriterion, tolerance: f32) -> Box<dyn Fn(
     &Vec<f32>,
     &Vec<f32>, 
     usize, 
-    usize
+    usize,
+    &mut dyn Write,
 ) -> bool> {
     match merge_criterion {
         MergeCriterion::Radius => {
-            Box::new(move |threshold, new_ls, new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n| {
+            Box::new(move |threshold, new_ls, new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n, write_out| {
                 let jt_sim = jt_isim_real(&[new_ls.clone(), new_centroid.clone()].concat(), &new_ss, new_n + 1)
                     * (new_n + 1) as f32
                     - jt_isim_real(&new_ls, &new_ss, new_n) * (new_n - 1) as f32;
@@ -61,18 +64,22 @@ fn set_merge(merge_criterion: MergeCriterion, tolerance: f32) -> Box<dyn Fn(
             })
         }
         MergeCriterion::Diameter => {
-            Box::new(move |threshold, new_ls, new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n| {
-                let jt_radius = jt_isim_real(&new_ls, &new_ss, new_n);
+            Box::new(move |threshold, new_ls, new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n, write_out| {
+                let jt_radius = jt_isim_real(
+                    &new_ls, 
+                    &new_ss, 
+                    new_n,
+                );
 
                 if jt_radius >= threshold {
-                    print!("Merging due to diameter criterion: jt_radius = {}", jt_radius);
+                    writeln!(write_out, "Merging due to diameter criterion: jt_radius = {}", jt_radius);
                 }
 
                 jt_radius >= threshold
             })
         }
         MergeCriterion::ToleranceTough => {
-            Box::new(move |threshold, new_ls,new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n| {
+            Box::new(move |threshold, new_ls,new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n, write_out| {
                 let jt_radius = jt_isim_real(&new_ls, &new_ss, new_n);
                 if jt_radius < threshold {
                     return false;
@@ -97,7 +104,7 @@ fn set_merge(merge_criterion: MergeCriterion, tolerance: f32) -> Box<dyn Fn(
             })
         }
         MergeCriterion::Tolerance => {
-            Box::new(move |threshold, new_ls, new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n| {
+            Box::new(move |threshold, new_ls, new_ss, new_centroid, new_n, old_ls, old_ss, nom_ls, old_n, nom_n, write_out| {
                 let jt_radius = jt_isim_binary(&new_ls, new_n);
                 if jt_radius < threshold {
                     return false;
@@ -1030,7 +1037,7 @@ impl BFSubcluster {
 
 
         // TODO: this needs to be changed where set_merge can called anywhere.
-        let merge_accept = set_merge(MergeCriterion::Diameter, 0.05);
+        let mut merge_accept = set_merge(MergeCriterion::Diameter, 0.05);
 
         // Collect the row into a Vec<f32> instead of trying to call as_slice()
         let row_as_vec: Vec<f32> = new_centroid.row(0).iter().cloned().collect();
@@ -1045,7 +1052,8 @@ impl BFSubcluster {
             &self.ss.as_ref().unwrap(), 
             &nominee_cluster.ls.unwrap(), 
             self.nj as usize, 
-            nominee_cluster.nj as usize
+            nominee_cluster.nj as usize,
+            write_out
         ) {
 
             writeln!(
