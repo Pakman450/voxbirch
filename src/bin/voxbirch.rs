@@ -3,49 +3,15 @@ use voxbirch::read_mol2_file;
 use voxbirch::write_cluster_mol_ids;
 use voxbirch::birch::VoxBirch;
 use voxbirch::get_recommended_info;
-use voxbirch::calc_time_breakdown;
+use voxbirch::{calc_time_breakdown,init_logging};
 use voxbirch::ArgsV;
 
 use std::path::{Path};
 use nalgebra::DMatrix;
 use clap::Parser;
 use std::time::{Instant};
-use env_logger::{Builder};
-use log::LevelFilter;
 use std::fs::File;
 use std::io::{Write, BufWriter};
-
-fn init_logging(verbosity: u8) {
-    let mut builder = Builder::new();
-
-    match verbosity {
-        0 => builder.filter_level(LevelFilter::Warn),   // default
-        1 => builder.filter_level(LevelFilter::Info),
-        2 => builder.filter_level(LevelFilter::Debug),
-        _ => builder.filter_level(LevelFilter::Trace),
-    };
-
-    builder.format(|buf, record| {
-
-        let level_style = buf.default_level_style(record.level());
-        let level = level_style.value(record.level());
-
-        let file = record.file().unwrap_or("unknown");
-        let line = record.line().unwrap_or(0);
-
-        writeln!(
-            buf,
-            "[{} {}:{} {}] {}",
-            level,
-            file,
-            line,
-            record.target(),
-            record.args()
-        )
-    });
-    
-    builder.init();
-}
 
 fn main() {
 

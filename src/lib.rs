@@ -9,7 +9,7 @@ pub mod args;
 pub use voxel::{voxelize, VoxelGrid, get_recommended_info};
 pub use file_io::{read_mol2_file, write_cluster_mol_ids};
 pub use isim::{jt_isim_real, jt_isim_binary};
-pub use utils::calc_time_breakdown;
+pub use utils::{calc_time_breakdown,init_logging};
 pub use birch::VoxBirch;
 pub use args::ArgsV;
  

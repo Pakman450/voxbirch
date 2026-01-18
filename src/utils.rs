@@ -1,4 +1,8 @@
 
+use std::io::{Write};
+use env_logger::{Builder};
+use log::LevelFilter;
+
 pub fn calc_time_breakdown (duration_mark: &std::time::Duration) -> (
     u64,
     u64,
@@ -35,4 +39,36 @@ pub fn calc_time_breakdown (duration_mark: &std::time::Duration) -> (
         seconds,
         milliseconds
     )
+}
+
+pub fn init_logging(verbosity: u8) {
+    let mut builder = Builder::new();
+
+    match verbosity {
+        0 => builder.filter_level(LevelFilter::Warn),   // default
+        1 => builder.filter_level(LevelFilter::Info),
+        2 => builder.filter_level(LevelFilter::Debug),
+        _ => builder.filter_level(LevelFilter::Trace),
+    };
+
+    builder.format(|buf, record| {
+
+        let level_style = buf.default_level_style(record.level());
+        let level = level_style.value(record.level());
+
+        let file = record.file().unwrap_or("unknown");
+        let line = record.line().unwrap_or(0);
+
+        writeln!(
+            buf,
+            "[{} {}:{} {}] {}",
+            level,
+            file,
+            line,
+            record.target(),
+            record.args()
+        )
+    });
+    
+    builder.init();
 }
