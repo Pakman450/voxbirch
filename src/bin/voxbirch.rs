@@ -203,6 +203,9 @@ fn main() {
     writeln!(stdout,"Writing cluster mol ids to: {:?}", write_to_path).unwrap();
     let _ = write_cluster_mol_ids(&write_to_path, &cluster_mol_ids);
 
+    // TODO: I need to write out mol2s for the 
+    // the top ranking clusters.  
+
     // Get the breakdown of elapsed time
     let (
         vox_hours,

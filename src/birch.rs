@@ -398,16 +398,14 @@ fn split_node(
                     threshold,
                     max_branches,
                     node.is_leaf,
-                    n_features,
-                    node.d_type,
+                    n_features
                 )));
 
     let  new_node2 = Rc::new(RefCell::new(BFNode::new(
                     threshold,
                     max_branches,
                     node.is_leaf,
-                    n_features,
-                    node.d_type,
+                    n_features
                 )));
     
     new_subcluster1.child = Some(Rc::clone(&new_node1));
@@ -567,7 +565,6 @@ struct BFNode {
     max_branches: usize,
     is_leaf: bool,
     n_features: usize,
-    d_type: TypeId,
     next_leaf: Option<Rc<RefCell<BFNode>>>,
     prev_leaf: Option<Rc<RefCell<BFNode>>>,
     subclusters: Option<Vec<BFSubcluster>>,
@@ -581,7 +578,6 @@ impl BFNode {
         max_branches: usize,
         is_leaf: bool,
         n_features: usize,
-        d_type: TypeId,
 
         ) -> Self {
         BFNode {
@@ -589,7 +585,6 @@ impl BFNode {
             max_branches,
             is_leaf,
             n_features,
-            d_type,
             next_leaf: None,
             prev_leaf: None,
             subclusters: None,
@@ -1068,7 +1063,10 @@ impl VoxBirch {
     }
 
 
-    // Fit function. only takes in one grid. 
+    // Fit function. takes in multiple grids
+    // TODO: I need to make a funtion that takes one grid
+    // at a time. this should serve a memory lean way to 
+    // run VoxBirch
     pub fn fit(
         &mut self, 
         grids : &DMatrix<f32>, 
@@ -1089,8 +1087,7 @@ impl VoxBirch {
                     self.threshold,
                     self.max_branches,
                     true,
-                    n_features,
-                    TypeId::of::<f32>(),
+                    n_features
                 ))));
 
 
@@ -1099,8 +1096,7 @@ impl VoxBirch {
                     self.threshold,
                     self.max_branches,
                     true,
-                    n_features,
-                    TypeId::of::<f32>(),
+                    n_features
                 ))));
 
             self.dummy_leaf
@@ -1176,8 +1172,7 @@ impl VoxBirch {
                     self.threshold,
                     self.max_branches,
                     false,
-                    n_features,
-                    TypeId::of::<f32>(),
+                    n_features
                 ))));
 
                 self.root.as_ref()
