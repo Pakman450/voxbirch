@@ -177,7 +177,7 @@ pub fn write_mol2s_via_cluster_ind(
 
     for (index, row) in cluster_mol_ids.iter().enumerate() {
         
-        if cluster_write_limit == index + 1 {
+        if cluster_write_limit == index {
             break;
         }
 
