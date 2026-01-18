@@ -237,6 +237,10 @@ fn main() {
             "sec"
         };
 
+    let process_rate: f32 = ( 
+        l_mols.len() as u64 / (clust_secs_entire - vox_secs_entire) 
+    ) as f32;
+
     writeln!(stdout,
 "\nFinished
 Summary statistics:
@@ -244,7 +248,7 @@ Total number of clusters: {}
 Elapsed time for Voxelization: {}h {}m {}s {}ms
 Elapsed time for Clustering: {}h {}m {}s {}ms
 Number of molecules per {} during Clustering: {}
-{} per molecule during Clustering: {}
+Number of {} per molecule during Clustering: {}
 Total Elapsed time: {}h {}m {}s {}ms",
         num_clusters,
         
@@ -259,10 +263,10 @@ Total Elapsed time: {}h {}m {}s {}ms",
         clust_milliseconds - vox_milliseconds,
 
         milli_or_sec,
-        l_mols.len() as u64 / (clust_secs_entire - vox_secs_entire),
+        process_rate,
         
         milli_or_sec,
-        (clust_secs_entire - vox_secs_entire) / l_mols.len() as u64,
+        1.0 / process_rate,
 
         tot_hours, 
         tot_minutes, 
