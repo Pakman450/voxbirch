@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::fs::File;
 use std::io::{self, BufRead, BufWriter, Write, Result};
+use std::fs;
 
 #[derive(Clone)]
 pub struct VoxMol {
@@ -155,5 +156,64 @@ pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<String>>) ->
 
     Ok(())
 
+
+}
+
+pub fn write_mol2s_via_cluster_ind( 
+    cluster_mol_ids :&Vec<Vec<String>>,
+    path: &Path
+) -> io::Result<()>
+{
+    fs::create_dir_all("./molecules")?;
+    let lines: Vec<String> = {
+        let file = File::open(path)?;
+        let reader = io::BufReader::new(file);
+        reader.lines().collect::<io::Result<_>>()?
+    };
+
+    let last_index = cluster_mol_ids.len() - 1;
+    let num_digits = last_index.to_string().len();
+
+    for (index, row) in cluster_mol_ids.iter().enumerate() {
+        
+        let path_file: String = format!(
+            "./molecules/cluster_{:0width$}.mol2",
+            index,
+            width = num_digits
+        );
+        let file = File::create(path_file)?;
+        let mut writer = BufWriter::new(file);       
+        for (i, val) in row.iter().enumerate() {
+            // Flags to track sections in MOL2 file
+            let mut in_mol_section: bool = false;
+
+            for line in &lines {
+
+                if line.contains("Name:") {
+                    let parts: Vec<&str> = 
+                        line.split_whitespace().collect();
+                    if parts.len() >= 2 && 
+                        val == &parts[2].to_string()
+                    {
+                        in_mol_section = true;
+                    }
+                }
+
+                if in_mol_section {
+                    if line.ends_with("ROOT") {
+                        in_mol_section = false;
+                        write!(writer,"{}\n\n", line)?;
+                        continue;
+                    }
+                    write!(writer,"{}\n", line)?;
+
+                    continue;
+                }
+            }
+
+        }
+    }
+
+    Ok(())
 
 }

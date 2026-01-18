@@ -1,15 +1,18 @@
 use voxbirch::voxelize;
 use voxbirch::read_mol2_file;
-use voxbirch::write_cluster_mol_ids;
+use voxbirch::{
+    write_cluster_mol_ids,
+    write_mol2s_via_cluster_ind
+};
 use voxbirch::birch::VoxBirch;
 use voxbirch::get_recommended_info;
-use voxbirch::{calc_time_breakdown,init_logging};
+use voxbirch::{ calc_time_breakdown, init_logging };
 use voxbirch::ArgsV;
 
-use std::path::{Path};
+use std::path::Path;
 use nalgebra::DMatrix;
 use clap::Parser;
-use std::time::{Instant};
+use std::time::Instant;
 use std::fs::File;
 use std::io::{Write, BufWriter};
 
@@ -183,6 +186,11 @@ fn main() {
     let num_clusters = cluster_mol_ids.len();
     let path_cluster_ids: String = clustered_mol_id_string.unwrap();
     let write_to_path = Path::new(&path_cluster_ids);
+
+    let _ = write_mol2s_via_cluster_ind(
+        &cluster_mol_ids,
+        &path
+    );
 
     writeln!(stdout,"Writing cluster mol ids to: {:?}", write_to_path).unwrap();
     let _ = write_cluster_mol_ids(&write_to_path, &cluster_mol_ids);
