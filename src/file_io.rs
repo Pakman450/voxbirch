@@ -161,7 +161,8 @@ pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<(String, usi
 
 pub fn write_mol2s_via_cluster_ind( 
     cluster_mol_ids :&Vec<Vec<(String, usize)>>,
-    path: &Path
+    path: &Path,
+    cluster_write_limit: usize
 ) -> io::Result<()>
 {
     fs::create_dir_all("./molecules")?;
@@ -176,6 +177,10 @@ pub fn write_mol2s_via_cluster_ind(
 
     for (index, row) in cluster_mol_ids.iter().enumerate() {
         
+        if cluster_write_limit == index + 1 {
+            break;
+        }
+
         let path_file: String = format!(
             "./molecules/cluster_{:0width$}.mol2",
             index,

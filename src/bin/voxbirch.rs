@@ -34,11 +34,13 @@ fn main() {
     let threshold = args.threshold;
     let max_branches = args.max_branches;
     let mut clustered_mol_id_string = args.clustered_ids_path.clone();
+    let cluster_write_limit = args.cluster_write_limit;
     if args.clustered_ids_path.is_none() {
         clustered_mol_id_string = Some(String::from("./clustered_mol_ids.txt"));
     }
-    let atom_typing = args.atom_typing;
     let no_condense = args.no_condense;
+    let atom_typing = args.atom_typing;
+    
     init_logging(args.verbosity);
     let quiet = args.quiet;
 
@@ -189,7 +191,8 @@ fn main() {
 
     let _ = write_mol2s_via_cluster_ind(
         &cluster_mol_ids,
-        &path
+        &path,
+        cluster_write_limit
     );
 
     writeln!(stdout,"Writing cluster mol ids to: {:?}", write_to_path).unwrap();

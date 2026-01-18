@@ -213,6 +213,7 @@ mod tests {
             max_branches: 50,
             clustered_ids_path: Some(String::from("./clustered_mol_ids.txt")),
             output_path: Some(String::from("./voxbirch.out")),
+            cluster_write_limit: 100,
             no_condense: false,
             atom_typing: false,
             verbosity: 0,

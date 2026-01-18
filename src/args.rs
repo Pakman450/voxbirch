@@ -35,6 +35,10 @@ pub struct ArgsV {
     #[arg(long, default_value = None)]
     pub output_path: Option<std::string::String>,
 
+    /// Number of clusters to write out
+    #[arg(short, long, default_value_t = 10)]
+    pub cluster_write_limit: usize,
+
     /// Add atom typing
     #[arg(long)]
     pub atom_typing: bool,
