@@ -277,11 +277,11 @@ mod tests {
 
         vb.fit(&input_matrix, titles, & mut stdout);
 
-        let cluster_mol_ids: Vec<Vec<String>> = vb.get_cluster_mol_ids();
+        let cluster_mol_ids: Vec<Vec<(String, usize)>> = vb.get_cluster_mol_ids();
 
         assert_eq!(cluster_mol_ids.len(),2);
-        assert_eq!(cluster_mol_ids[0][0],"ZINC000004771104");
-        assert_eq!(cluster_mol_ids[1][0],"ZINC000108479470");
+        assert_eq!(cluster_mol_ids[0][0].0,"ZINC000004771104");
+        assert_eq!(cluster_mol_ids[1][0].0,"ZINC000108479470");
 
     }
 }

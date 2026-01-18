@@ -182,7 +182,7 @@ fn main() {
     );
 
     // Get results after clustering. 
-    let cluster_mol_ids: Vec<Vec<String>> = vb.get_cluster_mol_ids();
+    let cluster_mol_ids: Vec<Vec<(String, usize)>> = vb.get_cluster_mol_ids();
     let num_clusters = cluster_mol_ids.len();
     let path_cluster_ids: String = clustered_mol_id_string.unwrap();
     let write_to_path = Path::new(&path_cluster_ids);

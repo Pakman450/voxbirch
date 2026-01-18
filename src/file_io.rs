@@ -139,7 +139,7 @@ pub fn read_mol2_file(
     
 }
 
-pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<String>>) -> Result<()>  {
+pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<(String, usize)>>) -> Result<()>  {
 
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
@@ -149,7 +149,7 @@ pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<String>>) ->
             if i == 0 {
                 write!(writer, "index: {}\n", index)?;
             }
-            write!(writer, "mol: {}\n", val)?;
+            write!(writer, "mol {}: {}\n", val.1, val.0)?;
         }
         writeln!(writer)?;
     }
@@ -160,7 +160,7 @@ pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<String>>) ->
 }
 
 pub fn write_mol2s_via_cluster_ind( 
-    cluster_mol_ids :&Vec<Vec<String>>,
+    cluster_mol_ids :&Vec<Vec<(String, usize)>>,
     path: &Path
 ) -> io::Result<()>
 {
@@ -182,28 +182,45 @@ pub fn write_mol2s_via_cluster_ind(
             width = num_digits
         );
         let file = File::create(path_file)?;
-        let mut writer = BufWriter::new(file);       
+        let mut writer = BufWriter::new(file); 
+
+        // Vector to store matching lines or strings
+        let mut l_titles: Vec<String> = Vec::new();
+
+        for line in &lines {
+            if line.contains("Name:") {
+                let parts: Vec<&str> = 
+                    line.split_whitespace().collect();
+                l_titles.push(parts[2].to_string() );
+            }
+        }
+
         for (i, val) in row.iter().enumerate() {
+
             // Flags to track sections in MOL2 file
             let mut in_mol_section: bool = false;
+            let mut index_counter: usize = 0;
 
             for line in &lines {
 
                 if line.contains("Name:") {
+                    
                     let parts: Vec<&str> = 
                         line.split_whitespace().collect();
                     if parts.len() >= 2 && 
-                        val == &parts[2].to_string()
+                        val.0 == parts[2].to_string() 
+                        && val.1 == index_counter
                     {
                         in_mol_section = true;
+                        
                     }
+                    index_counter += 1;
                 }
 
                 if in_mol_section {
                     if line.ends_with("ROOT") {
-                        in_mol_section = false;
                         write!(writer,"{}\n\n", line)?;
-                        continue;
+                        break;
                     }
                     write!(writer,"{}\n", line)?;
 

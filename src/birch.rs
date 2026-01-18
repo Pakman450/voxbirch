@@ -380,13 +380,13 @@ fn split_node(
     }
     let mut new_subcluster1 = BFSubcluster::new(
         None, 
-        Vec::<String>::new(), 
+        Vec::<(String, usize)>::new(), 
         max_branches, 
         node.n_features
     );
     let mut new_subcluster2 = BFSubcluster::new(
         None, 
-        Vec::<String>::new(), 
+        Vec::<(String, usize)>::new(), 
         max_branches, 
         node.n_features
     );
@@ -873,14 +873,14 @@ struct BFSubcluster {
     nj: u32,
     ls: Option<Vec<f32>>,
     ss: Option<Vec<f32>>,
-    mols: Option<Vec<String>>,
+    mols: Option<Vec<(String, usize)>>,
     // cj: Option<Vec<f32>>,
     child: Option<Rc<RefCell<BFNode>>>,
     centroid: Option<DMatrix<f32>>,
 }
 
 impl BFSubcluster {
-    pub fn new(linear_sum: Option<Vec<f32>>, mol_titles: Vec<String>, max_branches: usize, n_features: usize) -> Self {
+    pub fn new(linear_sum: Option<Vec<f32>>, mol_titles: Vec<(String, usize)>, max_branches: usize, n_features: usize) -> Self {
 
         if linear_sum == None {
 
@@ -888,7 +888,7 @@ impl BFSubcluster {
                 nj: 0,
                 ls: Some(vec![0.0; n_features]),
                 ss: Some(vec![0.0; n_features]),
-                mols: Some(Vec::<String>::new()),
+                mols: Some(Vec::<(String, usize)>::new()),
                 child: None,
                 centroid:  Some(DMatrix::<f32>::zeros(max_branches+1, n_features)),
             }
@@ -1125,7 +1125,7 @@ impl VoxBirch {
             let grid: Option<Vec<f32>> = Some(
                 grids.row(iter).iter().copied().collect()
             );
-            let mol_indices: Vec<String> = vec![mol_title];
+            let mol_indices: Vec<(String, usize)> = vec![(mol_title,iter)];
             let subcluster = BFSubcluster::new(
                 grid.clone(),
                 mol_indices, 
@@ -1225,13 +1225,13 @@ impl VoxBirch {
         
         leaves
     }
-    pub fn get_cluster_mol_ids(& self) ->  Vec<Vec<String>> {
+    pub fn get_cluster_mol_ids(& self) ->  Vec<Vec<(String, usize)>> {
 
         if self.first_call {
             panic!("The model has not been fitted yet.");
         }        
 
-        let mut clusters_mol_id = Vec::<Vec::<String>>::new();
+        let mut clusters_mol_id = Vec::<Vec::<(String, usize)>>::new();
         
         for leaf in self.get_leaves() {
             let leaf_ref = leaf.borrow();
