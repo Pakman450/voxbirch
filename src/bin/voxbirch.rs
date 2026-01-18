@@ -131,6 +131,24 @@ fn main() {
         need_x_user, need_y_user, need_z_user
     ).unwrap();
 
+    let (
+        _, 
+        _, 
+        _, 
+        _, 
+        _, 
+        _,
+        rec_need_x_user,
+        rec_need_y_user,
+        rec_need_z_user
+    ) = get_recommended_info(&l_mols, resolution, min_x.floor(), min_y.floor(), min_z.floor());
+
+    writeln!(stdout,
+        "Required dims from recommended origin ({},{},{}): {},{},{}", 
+        min_x.floor(), min_y.floor(), min_z.floor(),
+        rec_need_x_user, rec_need_y_user, rec_need_z_user
+    ).unwrap();
+
     writeln!(stdout,"\nVoxelizing...").unwrap();
     // Voxelization of molecules's xyz's
     let grids = voxelize(
@@ -208,6 +226,7 @@ fn main() {
 
     // Get the breakdown of elapsed time
     let (
+        vox_secs_entire,
         vox_hours,
         vox_minutes,
         vox_seconds,
@@ -216,11 +235,20 @@ fn main() {
 
     let total_duration: std::time::Duration = start_time.elapsed();
     let (
+        total_secs_entire,
         tot_hours,
         tot_minutes,
         tot_seconds,
         tot_milliseconds
     ) = calc_time_breakdown(&total_duration);
+
+    let milli_or_sec: &str = 
+        if total_secs_entire == tot_milliseconds as u64
+        {
+            "ms"
+        } else {
+            "sec"
+        };
 
     writeln!(stdout,
 "\nFinished
@@ -228,6 +256,7 @@ Summary statistics:
 Total number of clusters: {}
 Elapsed time for Voxelization: {}h {}m {}s {}ms
 Elapsed time for Clustering: {}h {}m {}s {}ms
+Number of molecules per {} during Clustering: {}
 Total Elapsed time: {}h {}m {}s {}ms",
         num_clusters,
         
@@ -240,6 +269,9 @@ Total Elapsed time: {}h {}m {}s {}ms",
         tot_minutes - vox_minutes, 
         tot_seconds - vox_seconds, 
         tot_milliseconds - vox_milliseconds,
+
+        milli_or_sec,
+        l_mols.len() as u64 / (total_secs_entire - vox_secs_entire),
         
         tot_hours, 
         tot_minutes, 
