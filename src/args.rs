@@ -12,7 +12,7 @@ pub struct ArgsV {
     pub dims: Vec<usize>,
 
     /// Resolution of the voxel grid in Angstroms
-    #[arg(short, long, default_value_t = 2.0)]
+    #[arg(short, long, default_value_t = 1.41421356)]
     pub resolution: f32,
 
     /// Target origin x0 y0 z0 via comma separated string

@@ -73,7 +73,7 @@ fn main() {
     writeln!(stdout,"Thresold: {}", threshold).unwrap();
     writeln!(stdout,"Max Branches: {}", max_branches).unwrap();
     writeln!(stdout,"Enforce Atom Typing: {}", atom_typing).unwrap();
-    writeln!(stdout,"Condense Voxel Grids: {}", no_condense).unwrap();
+    writeln!(stdout,"Condense Voxel Grids: {}", !no_condense).unwrap();
     writeln!(stdout,"Quiet mode: {}", quiet).unwrap();
     writeln!(stdout,"################################################").unwrap();
 
@@ -183,6 +183,8 @@ fn main() {
         & mut stdout
     );
 
+    let clustering_duration: std::time::Duration = start_time.elapsed();
+
     // Get results after clustering. 
     let cluster_mol_ids: Vec<Vec<(String, usize)>> = vb.get_cluster_mol_ids();
     let num_clusters = cluster_mol_ids.len();
@@ -210,9 +212,17 @@ fn main() {
         vox_milliseconds
     ) = calc_time_breakdown(&voxelize_duration);
 
+    let (
+        clust_secs_entire,
+        clust_hours,
+        clust_minutes,
+        clust_seconds,
+        clust_milliseconds
+    ) = calc_time_breakdown(&clustering_duration);
+
     let total_duration: std::time::Duration = start_time.elapsed();
     let (
-        total_secs_entire,
+        _,
         tot_hours,
         tot_minutes,
         tot_seconds,
@@ -220,7 +230,7 @@ fn main() {
     ) = calc_time_breakdown(&total_duration);
 
     let milli_or_sec: &str = 
-        if total_secs_entire == tot_milliseconds as u64
+        if clust_secs_entire == clust_milliseconds as u64
         {
             "ms"
         } else {
@@ -234,6 +244,7 @@ Total number of clusters: {}
 Elapsed time for Voxelization: {}h {}m {}s {}ms
 Elapsed time for Clustering: {}h {}m {}s {}ms
 Number of molecules per {} during Clustering: {}
+{} per molecule during Clustering: {}
 Total Elapsed time: {}h {}m {}s {}ms",
         num_clusters,
         
@@ -242,14 +253,17 @@ Total Elapsed time: {}h {}m {}s {}ms",
         vox_seconds, 
         vox_milliseconds,
         
-        tot_hours - vox_hours, 
-        tot_minutes - vox_minutes, 
-        tot_seconds - vox_seconds, 
-        tot_milliseconds - vox_milliseconds,
+        clust_hours - vox_hours, 
+        clust_minutes - vox_minutes, 
+        clust_seconds - vox_seconds, 
+        clust_milliseconds - vox_milliseconds,
 
         milli_or_sec,
-        l_mols.len() as u64 / (total_secs_entire - vox_secs_entire),
+        l_mols.len() as u64 / (clust_secs_entire - vox_secs_entire),
         
+        milli_or_sec,
+        (clust_secs_entire - vox_secs_entire) / l_mols.len() as u64,
+
         tot_hours, 
         tot_minutes, 
         tot_seconds, 
