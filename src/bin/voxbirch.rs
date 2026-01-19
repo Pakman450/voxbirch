@@ -247,8 +247,8 @@ Summary statistics:
 Total number of clusters: {}
 Elapsed time for Voxelization: {}h {}m {}s {}ms
 Elapsed time for Clustering: {}h {}m {}s {}ms
-Number of molecules per {} during Clustering: {}
-Number of {} per molecule during Clustering: {}
+Number of molecules processed per {} during Clustering: {}
+Number of {} per molecule processed during Clustering: {}
 Total Elapsed time: {}h {}m {}s {}ms",
         num_clusters,
         
