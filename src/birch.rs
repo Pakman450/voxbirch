@@ -1,6 +1,5 @@
 use nalgebra::{DMatrix, RowVector, RowDVector, VecStorage, U1, Dyn};
 use core::panic;
-use std::{any::TypeId};
 use std::rc::Rc;
 use std::cell::RefCell;
 use log::{error, warn, debug};
@@ -379,14 +378,14 @@ fn split_node(
         debug_assert!(!(subcluster.nj == 0));
     }
     let mut new_subcluster1 = BFSubcluster::new(
-        None, 
-        Vec::<(String, usize)>::new(), 
+        &None, 
+        &Vec::<(String, usize)>::new(), 
         max_branches, 
         node.n_features
     );
     let mut new_subcluster2 = BFSubcluster::new(
-        None, 
-        Vec::<(String, usize)>::new(), 
+        &None, 
+        &Vec::<(String, usize)>::new(), 
         max_branches, 
         node.n_features
     );
@@ -439,7 +438,7 @@ fn split_node(
         _,
         node1_dist,
         node2_dist
-    ) = max_seperation(&node.centroids.clone().unwrap(), max_branches);
+    ) = max_seperation(&node.centroids.as_ref().unwrap(), max_branches);
 
 
     let mut node1_closer: Vec<bool> = node1_dist.iter()
@@ -468,13 +467,13 @@ fn split_node(
     for (idx, subcluster) in node.subclusters.as_mut().unwrap().iter_mut().enumerate() {
         assert!(!(subcluster.nj == 0));
         if node1_closer[idx] {
-            new_node1.borrow_mut().append_subcluster(subcluster.clone());
+            new_node1.borrow_mut().append_subcluster(&subcluster);
             new_subcluster1.update(subcluster, max_branches, n_features);
 
         // It could be possible that the second sublcuster was never updated due
         // to this if then logic. 
         } else {
-            new_node2.borrow_mut().append_subcluster(subcluster.clone());
+            new_node2.borrow_mut().append_subcluster(&subcluster);
             new_subcluster2.update(subcluster, max_branches, n_features);
         }
     }
@@ -593,7 +592,7 @@ impl BFNode {
         }
     }
     
-    pub fn append_subcluster (&mut self, subcluster: BFSubcluster) {
+    pub fn append_subcluster (&mut self, subcluster: &BFSubcluster) {
        
         debug!("Before split_node procress");
         if !self.subclusters.is_none() {
@@ -629,13 +628,13 @@ impl BFNode {
         };
 
         // --- take the centroid BEFORE moving subcluster ---
-        let centroid = subcluster.centroid.as_ref().unwrap().clone();
+        let centroid = subcluster.centroid.as_ref().unwrap();
 
         debug!("append_sublcuster: centroid non zero?: = {},", centroid.iter().any(|&x| x != 0.0));
         // append the subcluster, which is gonna the n_samples index now.
         match &mut self.subclusters {
-            Some(subclusters) => subclusters.push(subcluster),
-            None => self.subclusters = Some(vec![subcluster]),
+            Some(subclusters) => subclusters.push(subcluster.clone()),
+            None => self.subclusters = Some(vec![subcluster.clone()]),
         };
 
         debug!("subclusters.len() = {}, after = {}", n_samples , &self.subclusters.as_ref().unwrap().len() );
@@ -664,8 +663,8 @@ impl BFNode {
     fn update_split_subclusters(
         & mut self,
         row_idx: usize , 
-        new_subcluster1: BFSubcluster ,
-        new_subcluster2: BFSubcluster
+        new_subcluster1: &BFSubcluster ,
+        new_subcluster2: &BFSubcluster
     ) {
 
         // ind = self.subclusters.index()
@@ -678,14 +677,14 @@ impl BFNode {
             &new_subcluster1.centroid.clone().unwrap().row(0)
         );
         // self.centroids.unwrap()[row_idx] = new_subcluster1.centroid;
-        self.append_subcluster(new_subcluster2.clone());
+        self.append_subcluster(&new_subcluster2);
 
     }
 
     pub fn insert_bf_subcluster(
         &mut self,
-        subcluster: BFSubcluster,
-        parent: BFSubcluster,
+        subcluster: &BFSubcluster,
+        parent: &BFSubcluster,
         write_out: &mut impl Write
     ) -> bool {
 
@@ -702,7 +701,7 @@ impl BFNode {
         debug_assert!(!(subcluster.nj == 0));
 
         if self.subclusters.is_none() {
-            self.append_subcluster(subcluster.clone());
+            self.append_subcluster(&subcluster);
             return false;      
         }
 
@@ -746,7 +745,7 @@ impl BFNode {
 
         if closest_node_is_none {
             let merged = self.subclusters.as_mut().unwrap()[row_idx].merge_subcluster(
-                subcluster.clone(), max_branches, threshold, write_out
+                &subcluster, max_branches, threshold, write_out
             );
 
             debug!(
@@ -754,7 +753,10 @@ impl BFNode {
             );
 
             if !merged {
-                if self.subclusters.as_ref().unwrap().len() >= self.max_branches + 1 {
+                if self.subclusters
+                    .as_ref()
+                    .unwrap()
+                    .len() >= self.max_branches + 1 {
                     println!(
                         "
                         The child node of the closest subcluster is None, and
@@ -766,8 +768,11 @@ impl BFNode {
                         "
                     );
                 }
-                self.append_subcluster(subcluster.clone());
-                return self.subclusters.as_ref().unwrap().len() > self.max_branches
+                self.append_subcluster(&subcluster);
+                return self.subclusters
+                    .as_ref()
+                    .unwrap()
+                    .len() > self.max_branches
             }
             
             let closest_subcluster = self.subclusters.as_mut().unwrap(); // Unwrap Option to get a mutable reference
@@ -779,14 +784,14 @@ impl BFNode {
                 .unwrap()
                 .row_mut(row_idx)
                 .copy_from(
-                    &row.clone().unwrap().row(0)
+                    &row.as_ref().unwrap().row(0)
             );
             self.init_centroids
                 .as_mut()
                 .unwrap()
                 .row_mut(row_idx)
                 .copy_from(
-                    &row.clone().unwrap().row(0)
+                    &row.as_ref().unwrap().row(0)
             );
 
             return false
@@ -803,8 +808,8 @@ impl BFNode {
                     .unwrap()
                     .borrow_mut()
                     .insert_bf_subcluster(
-                        subcluster.clone(),
-                        parent.clone(),
+                        &subcluster,
+                        &parent,
                         write_out,
                 );
         
@@ -820,8 +825,8 @@ impl BFNode {
             // this includes append_subcluster
             self.update_split_subclusters(
                 row_idx,
-                new_subcluster1, 
-                new_subcluster2
+                &new_subcluster1, 
+                &new_subcluster2
             );
 
             return self.subclusters.as_ref().unwrap().len() > self.max_branches    
@@ -845,7 +850,7 @@ impl BFNode {
                     .as_ref()
                     .unwrap()[row_idx]
                     .centroid
-                    .clone()
+                    .as_ref()
                     .unwrap()
                     .row(0)
             );
@@ -858,7 +863,7 @@ impl BFNode {
                     .as_ref()
                     .unwrap()[row_idx]
                     .centroid
-                        .clone()
+                        .as_ref()
                         .unwrap()
                         .row(0)
             );
@@ -880,9 +885,14 @@ struct BFSubcluster {
 }
 
 impl BFSubcluster {
-    pub fn new(linear_sum: Option<Vec<f32>>, mol_titles: Vec<(String, usize)>, max_branches: usize, n_features: usize) -> Self {
+    pub fn new(
+        linear_sum: &Option<Vec<f32>>, 
+        mol_titles: &Vec<(String, usize)>, 
+        max_branches: usize, 
+        n_features: usize
+    ) -> Self {
 
-        if linear_sum == None {
+        if linear_sum.as_ref() == None {
 
             BFSubcluster {
                 nj: 0,
@@ -890,15 +900,27 @@ impl BFSubcluster {
                 ss: Some(vec![0.0; n_features]),
                 mols: Some(Vec::<(String, usize)>::new()),
                 child: None,
-                centroid:  Some(DMatrix::<f32>::zeros(max_branches+1, n_features)),
+                centroid: Some(
+                    DMatrix::<f32>::zeros(
+                        max_branches+1, 
+                        n_features
+                    )
+                ),
             }
             
         } else {
 
-            let mut centroid_zeros = DMatrix::<f32>::zeros(max_branches + 1, n_features);
+            let mut centroid_zeros = 
+                DMatrix::<f32>::zeros(
+                    max_branches + 1, 
+                    n_features
+                );
 
             // Convert linear_sum Vec<f32> into a dynamic RowVector
-            let row_vec = RowVector::<f32, Dyn, VecStorage<f32, U1, Dyn>>::from_vec(linear_sum.clone().unwrap());
+            let row_vec = 
+                RowVector::<f32, Dyn, VecStorage<f32, U1, Dyn>>::from_vec(
+                linear_sum.clone().unwrap()
+                );
 
             // Set the first row
             centroid_zeros.row_mut(0).copy_from(&row_vec);
@@ -909,12 +931,12 @@ impl BFSubcluster {
                 nj: 1,
                 ls: Some(linear_sum.clone().unwrap()),
                 ss: Some(
-                    linear_sum.clone().unwrap()
+                    linear_sum.as_ref().unwrap()
                     .iter()
                     .map(|&x| x * x)
                     .collect()
                 ),
-                mols: Some(mol_titles),
+                mols: Some(mol_titles.clone()),
                 child: None,
                 centroid: Some(centroid_zeros),
             }
@@ -970,19 +992,19 @@ impl BFSubcluster {
 
     fn merge_subcluster (
         & mut self, 
-        nominee_cluster: BFSubcluster,
+        nominee_cluster: &BFSubcluster,
         max_branches: usize,
         threshold: f32,
         write_out: & mut impl Write
     ) -> bool {
 
-        let new_ls: Vec<f32> = self.ls.clone().unwrap().iter()
-            .zip(nominee_cluster.ls.clone().unwrap().iter())
+        let new_ls: Vec<f32> = self.ls.as_ref().unwrap().iter()
+            .zip(nominee_cluster.ls.as_ref().unwrap().iter())
             .map(|(x, y)| *x + *y)
             .collect();
 
-        let new_ss: Vec<f32> = self.ss.clone().unwrap().iter()
-            .zip(nominee_cluster.ss.clone().unwrap().iter())
+        let new_ss: Vec<f32> = self.ss.as_ref().unwrap().iter()
+            .zip(nominee_cluster.ss.as_ref().unwrap().iter())
             .map(|(x, y)| *x + *y)
             .collect();
 
@@ -1009,7 +1031,7 @@ impl BFSubcluster {
             new_n as usize, 
             &self.ls.as_ref().unwrap(), 
             &self.ss.as_ref().unwrap(), 
-            &nominee_cluster.ls.unwrap(), 
+            &nominee_cluster.clone().ls.unwrap(), 
             self.nj as usize, 
             nominee_cluster.nj as usize,
             write_out
@@ -1125,12 +1147,15 @@ impl VoxBirch {
             let grid: Option<Vec<f32>> = Some(
                 grids.row(iter).iter().copied().collect()
             );
+
+            let num_features = grid.as_ref().unwrap().len();
+
             let mol_indices: Vec<(String, usize)> = vec![(mol_title,iter)];
             let subcluster = BFSubcluster::new(
-                grid.clone(),
-                mol_indices, 
+                &grid,
+                &mol_indices, 
                 self.max_branches, 
-                grid.unwrap().len());
+                num_features);
 
             // printout the inserting subcluster stats 
             debug!("
@@ -1150,11 +1175,11 @@ impl VoxBirch {
                 .unwrap()
                 .borrow_mut()
                 .insert_bf_subcluster(
-                    subcluster.clone(),
+                    &subcluster,
                     // Here, BitBirch feeds in subcluster.parent_
                     // But since Rust is a strongly typed language
                     // we must send in BFSubcluster rather than. BFNode.
-                    subcluster.clone(),
+                    &subcluster,
                     stdout
             );
 
@@ -1178,12 +1203,12 @@ impl VoxBirch {
                 self.root.as_ref()
                     .unwrap()
                     .borrow_mut()
-                    .append_subcluster(new_subcluster1.clone());
+                    .append_subcluster(&new_subcluster1);
 
                 self.root.as_ref()
                     .unwrap()
                     .borrow_mut()
-                    .append_subcluster(new_subcluster2.clone());       
+                    .append_subcluster(&new_subcluster2);       
 
             }
             self.index_tracker += 1;
@@ -1197,7 +1222,7 @@ impl VoxBirch {
         let mut rows: Vec<RowDVector<f32>> = Vec::new();
 
         for leaf in leaves {
-            let leaf_ref = leaf.borrow();
+            let leaf_ref = leaf;
             if let Some(c) = &leaf_ref.centroids {
                 for i in 0..c.nrows() {
                     rows.push(c.row(i).into_owned());
@@ -1206,7 +1231,7 @@ impl VoxBirch {
         }
 
         // Assuming the centroids are a matrix and need to be reshaped
-        self.subcluster_centers = Some(rows.clone());
+        self.subcluster_centers = Some(rows);
 
         self.n_features_out = self.subcluster_centers.as_ref().unwrap().len();
         
@@ -1214,12 +1239,18 @@ impl VoxBirch {
         return self
     }
 
-    fn get_leaves(&self) -> Vec<Rc<RefCell<BFNode>>> {
+    fn get_leaves(&self) -> Vec<BFNode> {
         let mut leaves = Vec::new();
-        let mut leaf_ptr = self.dummy_leaf.as_ref().unwrap().borrow().next_leaf.clone();
+        let mut leaf_ptr = 
+            self.dummy_leaf
+                .as_ref()
+                .unwrap()
+                .borrow()
+                .next_leaf
+                .clone();
         
         while let Some(leaf) = leaf_ptr {
-            leaves.push(leaf.clone());
+            leaves.push(leaf.as_ref().borrow().clone());
             leaf_ptr = leaf.borrow().next_leaf.clone();
         }
         
@@ -1234,9 +1265,8 @@ impl VoxBirch {
         let mut clusters_mol_id = Vec::<Vec::<(String, usize)>>::new();
         
         for leaf in self.get_leaves() {
-            let leaf_ref = leaf.borrow();
 
-            if let Some(subclusters) = leaf_ref.subclusters.as_ref() {
+            if let Some(subclusters) = leaf.subclusters.as_ref() {
                 for subcluster in subclusters.iter() {
                     if let Some(mols) = subcluster.mols.as_ref() {
                         clusters_mol_id.push(mols.clone());
