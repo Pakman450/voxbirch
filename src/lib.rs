@@ -6,9 +6,13 @@ pub mod ascii;
 pub mod utils;
 pub mod args;
 
-pub use voxel::{voxelize, VoxelGrid, get_recommended_info};
+pub use voxel::{
+    voxelize,
+    voxelize_stream,
+    VoxelGrid, get_recommended_info};
 pub use file_io::{
     read_mol2_file, 
+    read_mol2_file_stream,
     write_cluster_mol_ids, 
     write_mol2s_via_cluster_ind
 };
@@ -69,9 +73,9 @@ mod tests {
                 & mut stdout
             ); 
 
-        let condense_sum: u32 = grids[0].condensed_data.iter().sum();
-        let sum: u32 = grids[0].data.iter().sum();
-        let total_length = grids[0].data.len();
+        let condense_sum: u32 = grids.as_ref().unwrap()[0].condensed_data.iter().sum();
+        let sum: u32 = grids.as_ref().unwrap()[0].data.iter().sum();
+        let total_length = grids.as_ref().unwrap()[0].data.len();
 
         assert_eq!(num_atoms,condense_sum as usize);
         assert_eq!(num_atoms, sum as usize);
@@ -129,14 +133,14 @@ mod tests {
 
         for (i,mol) in l_mols.iter().enumerate() {
             let num_atoms = mol.num_atoms();
-            let condense_sum: u32 = grids[i].condensed_data.iter().sum();
-            let sum: u32 = grids[i].data.iter().sum();
-            let total_length = grids[i].data.len();
+            let condense_sum: u32 = grids.as_ref().unwrap()[i].condensed_data.iter().sum();
+            let sum: u32 = grids.as_ref().unwrap()[i].data.iter().sum();
+            let total_length = grids.as_ref().unwrap()[i].data.len();
 
             assert_eq!(num_atoms,condense_sum as usize);
             assert_eq!(num_atoms, sum as usize);
             assert_eq!(12*3*5, total_length);
-            assert_eq!(grids[i].title, l_titles[i]);
+            assert_eq!(grids.as_ref().unwrap()[i].title, l_titles[i]);
         }
 
     }
@@ -245,15 +249,15 @@ mod tests {
 
         let mut titles: Vec<String> = Vec::new();
 
-        for grids in grids.iter() {
-            titles.push(grids.title.clone());
+        for grid in grids.as_ref().unwrap().iter() {
+            titles.push(grid.title.clone());
         }
 
-        let num_rows = grids.len();
-        let num_cond_cols = grids[0].condensed_data.len(); 
-        let num_cols = grids[0].data.len(); 
-        let num_cond_cols_sec = grids[1].condensed_data.len(); 
-        let num_cols_sec = grids[1].data.len(); 
+        let num_rows = grids.as_ref().unwrap().len();
+        let num_cond_cols = grids.as_ref().unwrap()[0].condensed_data.len(); 
+        let num_cols = grids.as_ref().unwrap()[0].data.len(); 
+        let num_cond_cols_sec = grids.as_ref().unwrap()[1].condensed_data.len(); 
+        let num_cols_sec = grids.as_ref().unwrap()[1].data.len(); 
 
         assert_eq!(num_rows, 2);
         assert_eq!(num_cond_cols, 12);
@@ -270,13 +274,15 @@ mod tests {
             num_cols
         );
 
-        for (i, grids) in grids.iter().enumerate() {
-            for (j, &value) in grids.data.iter().enumerate() {
+        for (i, grid) in grids.unwrap().iter().enumerate(){
+
+            for (j, &value) in grid.data
+                .iter().enumerate() {
                 input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
             }
         }
 
-        vb.fit(&input_matrix, titles, & mut stdout);
+        vb.cluster(&input_matrix, titles, & mut stdout);
 
         let cluster_mol_ids: Vec<Vec<(String, usize)>> = vb.get_cluster_mol_ids();
 

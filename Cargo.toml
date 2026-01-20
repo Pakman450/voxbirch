@@ -10,6 +10,10 @@ repository = "https://github.com/Pakman450/voxbirch"
 name = "voxbirch"
 path = "src/bin/voxbirch.rs"
 
+[[bin]]
+name = "vbirchlow"
+path = "src/bin/vbirchlow.rs"
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4.2", features = ["derive"] }
@@ -18,3 +22,6 @@ rand = "0.8"
 log = "0.4"
 env_logger = "0.10"
 chrono = "0.4"
+wincode = "0.2.5"
+serde = "1.0.228"
+wincode-derive = "0.2.3"

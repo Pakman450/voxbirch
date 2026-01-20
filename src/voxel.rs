@@ -1,7 +1,11 @@
 use crate::file_io::VoxMol;
 use std::io::Write;
+use std::fs::{OpenOptions,File};
+use wincode_derive::{SchemaWrite, SchemaRead};
+use wincode::{deserialize, serialize_into};
+use std::io::{BufReader, Read, Result};
 
-#[derive(Clone)]
+#[derive(Clone, SchemaWrite, SchemaRead)]
 pub struct VoxelGrid {
     pub title : String,
     pub dims: [usize; 3],
@@ -57,6 +61,92 @@ fn get_atom_typing_index(
 
 }
 
+pub fn voxelize_stream(
+    dims: [usize; 3],
+    rs: f32,
+    x0: f32,
+    y0: f32,
+    z0: f32,
+    atom_typing: bool,
+    stdout: & mut Box<dyn Write>
+) -> Result<(
+    u64, 
+    u64
+)> {
+
+    // create a list of voxel grids based on number of molecules
+
+    let mut num_rows: u64 = 0;
+    let mut num_cols: u64 = 0;
+
+    let mut binary_file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open("./tmp/grids_stream.binary.tmp")?;
+
+    // --- STREAM READ ---
+    let read_binary_file = File::open("./tmp/mols_stream.binary.tmp")?;
+    let mut reader = BufReader::new(read_binary_file);
+
+    loop {
+        // Read length prefix (4 bytes)
+        let mut len_buf = [0u8; 4];
+        match reader.read_exact(&mut len_buf) {
+            Ok(_) => {},
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break, // EOF
+            Err(e) => return Err(e.into()),
+        }
+
+        let len = u32::from_le_bytes(len_buf) as usize;
+
+        // Read exactly `len` bytes
+        let mut record_buf = vec![0u8; len];
+        reader.read_exact(&mut record_buf)?;
+
+        // Deserialize the struct
+        let mol: VoxMol = deserialize(&record_buf).unwrap();
+
+        let mut grid = VoxelGrid::new(dims, atom_typing, 0);
+
+        grid.title = mol.title.clone();
+
+        for atom_idx in 0..mol.num_atoms() {
+            let x = mol.x[atom_idx];
+            let y = mol.y[atom_idx];
+            let z = mol.z[atom_idx];
+
+
+            let ix = ((x - x0) / rs).floor() as usize;
+            let iy = ((y - y0) / rs).floor() as usize;
+            let iz = ((z - z0) / rs).floor() as usize;
+        
+            let index = grid.voxel_index(ix, iy, iz);
+
+            // TODO:now I want the indexes around the origin of ix,iy,iz 
+            // to spread the voxelization to neighboring voxels
+            // for simplicity, we will just do a 3x3x3 cube around the voxel
+            // In a real application, you might want to use a more sophisticated method
+            // such as a Gaussian spread or a sphere of influence
+            // but for now, let's just increment the neighboring voxels
+
+            grid.data[index] += 1;
+
+        }
+        num_cols = grid.data.len() as u64;
+        // --- STREAM WRITE ---
+        let mut buffer = Vec::new();
+        let _ = serialize_into(&mut buffer, &grid); // fills buffer
+        let len = buffer.len() as u32; 
+        // Write bytes to file
+        binary_file.write_all(&len.to_le_bytes())?;
+        binary_file.write_all(&buffer)?;
+        buffer.clear(); // reuse buffer
+        num_rows += 1;
+        
+    }
+
+    Ok((num_rows, num_cols as u64))
+}
 
 pub fn voxelize(
     l_mols: &Vec<VoxMol>,
@@ -68,7 +158,7 @@ pub fn voxelize(
     atom_typing: bool,
     all_atom_types: &Vec<String>,
     stdout: & mut Box<dyn Write>
-) -> Vec::<VoxelGrid> {
+) -> Result<Vec::<VoxelGrid>> {
 
     // create a list of voxel grids based on number of molecules
 
@@ -172,7 +262,7 @@ pub fn voxelize(
         "Sum of all voxel values: {}", voxel_sum
     ).unwrap();
 
-    grids
+    Ok(grids)
 }
 
 

@@ -22,6 +22,7 @@ pub fn calc_time_breakdown (duration_mark: &std::time::Duration) -> (
     // total duration, which is used for calculating
     // mol proccessed per sec
     if total_secs == 0 {
+
         return  (
             milliseconds as u64,
             hours,

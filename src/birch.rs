@@ -378,13 +378,13 @@ fn split_node(
         debug_assert!(!(subcluster.nj == 0));
     }
     let mut new_subcluster1 = BFSubcluster::new(
-        &None, 
+        None, 
         &Vec::<(String, usize)>::new(), 
         max_branches, 
         node.n_features
     );
     let mut new_subcluster2 = BFSubcluster::new(
-        &None, 
+        None, 
         &Vec::<(String, usize)>::new(), 
         max_branches, 
         node.n_features
@@ -886,7 +886,7 @@ struct BFSubcluster {
 
 impl BFSubcluster {
     pub fn new(
-        linear_sum: &Option<Vec<f32>>, 
+        linear_sum: Option<&Vec<f32>>, 
         mol_titles: &Vec<(String, usize)>, 
         max_branches: usize, 
         n_features: usize
@@ -919,7 +919,7 @@ impl BFSubcluster {
             // Convert linear_sum Vec<f32> into a dynamic RowVector
             let row_vec = 
                 RowVector::<f32, Dyn, VecStorage<f32, U1, Dyn>>::from_vec(
-                linear_sum.clone().unwrap()
+                linear_sum.clone().unwrap().to_vec()
                 );
 
             // Set the first row
@@ -929,7 +929,7 @@ impl BFSubcluster {
 
             BFSubcluster {
                 nj: 1,
-                ls: Some(linear_sum.clone().unwrap()),
+                ls: Some(linear_sum.clone().unwrap().to_vec()),
                 ss: Some(
                     linear_sum.as_ref().unwrap()
                     .iter()
@@ -1089,7 +1089,7 @@ impl VoxBirch {
     // TODO: I need to make a funtion that takes one grid
     // at a time. this should serve a memory lean way to 
     // run VoxBirch
-    pub fn fit(
+    pub fn cluster(
         &mut self, 
         grids : &DMatrix<f32>, 
         titles: Vec<String>, 
@@ -1152,7 +1152,7 @@ impl VoxBirch {
 
             let mol_indices: Vec<(String, usize)> = vec![(mol_title,iter)];
             let subcluster = BFSubcluster::new(
-                &grid,
+                grid.as_ref(),
                 &mol_indices, 
                 self.max_branches, 
                 num_features);
@@ -1235,6 +1235,124 @@ impl VoxBirch {
 
         self.n_features_out = self.subcluster_centers.as_ref().unwrap().len();
         
+        self.first_call = false;
+        return self
+    }
+
+
+    pub fn insert(
+        &mut self, 
+        grid : Option<&Vec<f32>>,
+        title: &String, 
+        iter: u64,    
+        stdout: & mut Box<dyn Write>
+        ) -> &mut VoxBirch 
+        {
+
+        let num_features = grid.unwrap().len();
+
+        if self.first_call {
+
+            self.root = 
+                Some(Rc::new(RefCell::new(BFNode::new(
+                    self.threshold,
+                    self.max_branches,
+                    true,
+                    num_features
+                ))));
+
+
+            self.dummy_leaf =                        
+                Some(Rc::new(RefCell::new(BFNode::new(
+                    self.threshold,
+                    self.max_branches,
+                    true,
+                    num_features
+                ))));
+
+            self.dummy_leaf
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .next_leaf = self.root.clone();
+
+            self.root
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .prev_leaf = self.dummy_leaf.clone();
+
+        }
+
+
+        let mol_indices: Vec<(String, usize)> = 
+            vec![
+                (title.to_string(),iter as usize)
+                ];
+
+        let subcluster = BFSubcluster::new(
+            grid,
+            &mol_indices, 
+            self.max_branches, 
+            num_features);
+
+        // printout the inserting subcluster stats 
+        debug!("
+        subcluster --{}--
+        ls.len() = {:?},
+        nj = {:?},
+        mols.len() = {:?}",
+        iter+1,
+        subcluster.clone().ls.unwrap().len(),
+        subcluster.clone().nj,
+        subcluster.clone().mols.unwrap().len()
+        );
+        debug_assert!(subcluster.nj == 1);
+
+        let split = self.root
+            .as_ref()
+            .unwrap()
+            .borrow_mut()
+            .insert_bf_subcluster(
+                &subcluster,
+                // Here, BitBirch feeds in subcluster.parent_
+                // But since Rust is a strongly typed language
+                // we must send in BFSubcluster rather than. BFNode.
+                &subcluster,
+                stdout
+        );
+
+        if split {
+
+            let (new_subcluster1, new_subcluster2) = split_node(
+                &self.root,
+                self.threshold,
+                self.max_branches
+            );
+
+            self.root = None;
+
+            self.root = Some(Rc::new(RefCell::new(BFNode::new(
+                self.threshold,
+                self.max_branches,
+                false,
+                num_features
+            ))));
+
+            self.root.as_ref()
+                .unwrap()
+                .borrow_mut()
+                .append_subcluster(&new_subcluster1);
+
+            self.root.as_ref()
+                .unwrap()
+                .borrow_mut()
+                .append_subcluster(&new_subcluster2);       
+
+        }
+        self.index_tracker += 1;
+
+
         self.first_call = false;
         return self
     }
