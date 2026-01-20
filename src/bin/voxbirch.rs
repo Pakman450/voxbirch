@@ -10,7 +10,7 @@ use voxbirch::{ calc_time_breakdown, init_logging };
 use voxbirch::ArgsV;
 
 use std::path::Path;
-use nalgebra::DMatrix;
+use nalgebra::{DMatrix, RowDVector};
 use clap::Parser;
 use std::time::Instant;
 use std::fs::File;
@@ -55,7 +55,7 @@ fn main() {
     };
 
     // Print the ASCII art
-    voxbirch::ascii::print_ascii_art(& mut stdout);
+    voxbirch::ascii::print_ascii_art(& mut stdout, false);
 
     // Read MOL2 file
     let path = Path::new(&file_path);
@@ -134,15 +134,15 @@ fn main() {
     let voxelize_duration: std::time::Duration = start_time.elapsed();
 
     // Get the number of rows (which is the number of VoxelGrids)
-    let num_rows = grids.len();
+    let num_rows = grids.as_ref().unwrap().len();
 
     // Get the number of cols (which is the number of voxels)
     let num_cols;
 
     if !no_condense {
-        num_cols = grids[0].condensed_data.len(); 
+        num_cols = grids.as_ref().unwrap()[0].condensed_data.len(); 
     } else{
-        num_cols = grids[0].data.len(); 
+        num_cols = grids.as_ref().unwrap()[0].data.len(); 
     }
     
     writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_cols).unwrap();
@@ -154,14 +154,18 @@ fn main() {
     );
 
     if !no_condense {
-        for (i, grids) in grids.iter().enumerate() {
-            for (j, &value) in grids.condensed_data.iter().enumerate() {
+        for (i, grid) in grids.as_ref().unwrap().iter().enumerate(){
+
+            for (j, &value) in grid.condensed_data
+                .iter().enumerate() {
                 input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
             }
         }
     } else{
-        for (i, grids) in grids.iter().enumerate() {
-            for (j, &value) in grids.data.iter().enumerate() {
+        for (i, grid) in grids.as_ref().unwrap().iter().enumerate(){
+
+            for (j, &value) in grid.data
+                .iter().enumerate() {
                 input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
             }
         }
@@ -176,10 +180,10 @@ fn main() {
         panic!("All of your voxels for all rows have 0.0s ");
     }
 
-    // start clustering
-    vb.fit(
+    // start clustering by inserting the entire data as a whole
+    vb.cluster(
         &input_matrix, 
-        grids.iter().map(|g| g.title.clone()).collect(),
+        grids.as_ref().unwrap().iter().map(|g| g.title.clone()).collect(),
         & mut stdout
     );
 
@@ -237,9 +241,15 @@ fn main() {
             "sec"
         };
 
-    let process_rate: f32 = ( 
-        l_mols.len() as u64 / (clust_secs_entire - vox_secs_entire) 
-    ) as f32;
+    
+    let process_rate: f32 = if clust_secs_entire == vox_secs_entire 
+    {       
+         l_mols.len() as f32 / 0.0000000000001
+    } else {
+         l_mols.len() as f32 / (clust_secs_entire - vox_secs_entire) as f32
+
+    };
+
 
     writeln!(stdout,
 "\nFinished
