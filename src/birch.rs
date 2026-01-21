@@ -1086,9 +1086,6 @@ impl VoxBirch {
 
 
     // Fit function. takes in multiple grids
-    // TODO: I need to make a funtion that takes one grid
-    // at a time. this should serve a memory lean way to 
-    // run VoxBirch
     pub fn cluster(
         &mut self, 
         grids : &DMatrix<f32>, 
@@ -1367,7 +1364,7 @@ impl VoxBirch {
         if self.first_call {
             panic!("The model has not been fitted yet.");
         }       
-        
+
         let mut leaf_ptr = 
             self.dummy_leaf
                 .as_ref()
