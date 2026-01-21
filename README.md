@@ -63,4 +63,12 @@ If you must see the debug logs for the purposes of development:
 voxbirch -p molecules.mol2 -vv > output.out 2>&1
 ```
 
+If you need low memory mode because you don't want to 
+load in too many molecules onto ram, try the 
+low memory mode version of voxbirch:
+
+```
+vbirchlow -p molecules.mol2 -m 10
+```
+
 
