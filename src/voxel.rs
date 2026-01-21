@@ -339,3 +339,93 @@ pub fn get_recommended_info(l_mols: &Vec<VoxMol>, resolution: f32, x0: f32, y0: 
 
 
 
+
+pub fn get_recommended_info_stream(resolution: f32, x0: f32, y0: f32, z0: f32) ->
+    (f32, f32, f32, usize, usize, usize, usize, usize, usize) {
+    // --- STREAM READ ---
+    let mut min_xyz = ( 0.0, 0.0, 0.0 );
+    let mut max_xyz = ( 0.0, 0.0, 0.0 );
+    let read_binary_file = File::open("./tmp/mols_stream.binary.tmp");
+    let mut reader = BufReader::new(read_binary_file.unwrap());
+    loop {
+        // Read length prefix (4 bytes)
+        let mut len_buf = [0u8; 4];
+
+        match reader.read_exact(&mut len_buf) {
+            Ok(_) => {},
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                    break;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        let len = u32::from_le_bytes(len_buf) as usize;
+
+        // Read exactly `len` bytes
+        let mut record_buf = vec![0u8; len];
+        let _ = reader.read_exact(&mut record_buf);
+
+        // Deserialize the struct
+        let mol: VoxMol = deserialize(&record_buf).unwrap();
+
+        for atom_idx in 0..(mol.num_atoms()-1) {
+
+            if mol.x[atom_idx] < min_xyz.0 {
+                min_xyz.0 = mol.x[atom_idx];
+            }
+            if mol.y[atom_idx] < min_xyz.1 {
+                min_xyz.1 = mol.y[atom_idx];
+            }
+            if mol.z[atom_idx] < min_xyz.2 {
+                min_xyz.2 = mol.z[atom_idx];
+            }
+
+            if mol.x[atom_idx] > max_xyz.0 {
+                max_xyz.0 = mol.x[atom_idx];
+            }
+            if mol.y[atom_idx] > max_xyz.1 {
+                max_xyz.1 = mol.y[atom_idx];
+            }
+            if mol.z[atom_idx] > max_xyz.2 {
+                max_xyz.2 = mol.z[atom_idx];
+            }
+        }
+    }
+
+    let max_x = max_xyz.0;
+    let max_y = max_xyz.1;
+    let max_z = max_xyz.2;
+    let min_x = min_xyz.0;
+    let min_y = min_xyz.1;
+    let min_z = min_xyz.2;
+
+    // span and required voxels (inclusive of boundary). Use floor(span / resolution) + 1
+    let span_x = (max_x - min_x).max(0.0);
+    let span_y = (max_y - min_y).max(0.0);
+    let span_z = (max_z - min_z).max(0.0);
+
+    let need_x = (span_x / resolution).floor() as usize + 1;
+    let need_y = (span_y / resolution).floor() as usize + 1;
+    let need_z = (span_z / resolution).floor() as usize + 1;
+
+    // Also compute required dims if using the user-provided origin (x0,y0,z0)
+    let span_x_user = (max_x - x0).max(0.0);
+    let span_y_user = (max_y - y0).max(0.0);
+    let span_z_user = (max_z - z0).max(0.0);
+
+    let need_x_user = (span_x_user / resolution).floor() as usize + 1;
+    let need_y_user = (span_y_user / resolution).floor() as usize + 1;
+    let need_z_user = (span_z_user / resolution).floor() as usize + 1;
+    
+    (
+        min_x, min_y, min_z, // minimum coordinates
+        need_x, need_y, need_z, // required dims from absolute origin
+        need_x_user, need_y_user, need_z_user // required dims from user-provided origin
+    )
+}
+
+
+

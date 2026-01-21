@@ -1339,7 +1339,7 @@ impl VoxBirch {
 
     // BUG: This fn can give oom events prolly because 
     // there are too many BFNodes causing too much mem allocation
-    // update: This is the reason for the crash. There is an oom event
+    // TODO: This is the reason for the crash. There is an oom event
     // because there too many BFNodes when I pull in all of the leaves.
     // I need to generate an algorithm that can allow users to pull
     // only N number of leaves rather than all of the them without 

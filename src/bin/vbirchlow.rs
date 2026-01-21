@@ -5,7 +5,7 @@ use voxbirch::{
     write_mol2s_via_cluster_ind
 };
 use voxbirch::birch::VoxBirch;
-use voxbirch::get_recommended_info;
+use voxbirch::get_recommended_info_stream;
 use voxbirch::{ calc_time_breakdown, init_logging };
 use voxbirch::ArgsV;
 use voxbirch::VoxelGrid;
@@ -77,7 +77,49 @@ fn main() {
     writeln!(stdout,"Condense Voxel Grids: {}", !no_condense).unwrap();
     writeln!(stdout,"Quiet mode: {}", quiet).unwrap();
     writeln!(stdout,"################################################").unwrap();
+    
+    writeln!(stdout,"\nGrabbing recommended voxelization parameters...").unwrap();
+    // Give user the recommended origin values for placing voxels.
+    let (
+        min_x, 
+        min_y, 
+        min_z, 
+        need_x, 
+        need_y, 
+        need_z,
+        need_x_user,
+        need_y_user,
+        need_z_user
+    ) = get_recommended_info_stream(resolution, x0, y0, z0);
+    writeln!(stdout,"The recommended origin: {},{},{}", min_x.floor(), min_y.floor(), min_z.floor()).unwrap();
 
+    writeln!(stdout,
+        "Minimal voxel grid dimensions to cover all molecules\n\t(from absolute origin {}): {},{},{}",
+        format!("{:.3},{:.3},{:.3}", min_x, min_y, min_z), need_x, need_y, need_z
+    ).unwrap();
+    writeln!(stdout,
+        "Required dims from provided origin ({:.3},{:.3},{:.3}): {},{},{}", 
+        x0, y0, z0, 
+        need_x_user, need_y_user, need_z_user
+    ).unwrap();
+
+    let (
+        _, 
+        _, 
+        _, 
+        _, 
+        _, 
+        _,
+        rec_need_x_user,
+        rec_need_y_user,
+        rec_need_z_user
+    ) = get_recommended_info_stream(resolution, min_x.floor(), min_y.floor(), min_z.floor());
+
+    writeln!(stdout,
+        "Required dims from recommended origin ({},{},{}): {},{},{}", 
+        min_x.floor(), min_y.floor(), min_z.floor(),
+        rec_need_x_user, rec_need_y_user, rec_need_z_user
+    ).unwrap();
     writeln!(stdout,"\nVoxelizing...").unwrap();
     // Voxelization of molecules's xyz's
     let (
@@ -114,8 +156,13 @@ fn main() {
 
         match reader.read_exact(&mut len_buf) {
             Ok(_) => {},
-            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break, // EOF
-            Err(e) => break,
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                    break;
+                } else {
+                    break;
+                }
+            }
         }
 
         let len = u32::from_le_bytes(len_buf) as usize;

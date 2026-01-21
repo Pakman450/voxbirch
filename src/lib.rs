@@ -9,7 +9,10 @@ pub mod args;
 pub use voxel::{
     voxelize,
     voxelize_stream,
-    VoxelGrid, get_recommended_info};
+    VoxelGrid,
+    get_recommended_info,
+    get_recommended_info_stream
+};
 pub use file_io::{
     read_mol2_file, 
     read_mol2_file_stream,
