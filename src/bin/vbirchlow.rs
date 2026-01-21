@@ -5,19 +5,18 @@ use voxbirch::{
     write_mol2s_via_cluster_ind
 };
 use voxbirch::birch::VoxBirch;
-use voxbirch::get_recommended_info_stream;
+use voxbirch::{get_recommended_info_stream,condense_data_stream};
 use voxbirch::{ calc_time_breakdown, init_logging };
 use voxbirch::ArgsV;
 use voxbirch::VoxelGrid;
 
 use std::path::Path;
-use nalgebra::{DMatrix};
 use clap::Parser;
 use std::time::Instant;
 use std::fs::File;
 use std::io::{Write, BufWriter};
-use wincode::{deserialize, deserialize_from, serialize_into};
-use std::io::{self, BufRead, BufReader, Read, Result};
+use wincode::{deserialize};
+use std::io::{BufReader, Read};
 
 fn main() {
 
@@ -63,11 +62,14 @@ fn main() {
 
     // Read MOL2 file
     let path = Path::new(&file_path);
-    let _ = read_mol2_file_stream(path, atom_typing).expect("Failed to read MOL2 file");
+    let (
+        all_atom_types,
+        num_mols
+     ) = read_mol2_file_stream(path, atom_typing).expect("Failed to read MOL2 file");
 
     writeln!(stdout,"################################################").unwrap();
     writeln!(stdout,"MOL2 file path: {}", file_path).unwrap();
-    writeln!(stdout,"Number of molecules read: {}", 0).unwrap();
+    writeln!(stdout,"Number of molecules read: {}", num_mols).unwrap();
     writeln!(stdout,"Voxel Grid Dimensions: {} x {} x {}", dimx, dimy, dimz).unwrap();
     writeln!(stdout,"Voxel Grid Resolution: {}", resolution).unwrap();
     writeln!(stdout,"Voxel Grid Origin: ({}, {}, {})", x0, y0, z0).unwrap();
@@ -124,18 +126,29 @@ fn main() {
     // Voxelization of molecules's xyz's
     let (
         num_rows,
-        num_cols
+        num_cols,
+        num_condensed_cols,
+        condensed_data_idx
     ) = voxelize_stream(
         [dimx, dimy, dimz], 
         resolution, 
         x0, y0, z0, 
         atom_typing,
+        all_atom_types,
         &mut stdout
     ).expect("Failed to voxelize"); 
 
+    if !no_condense {
+        condense_data_stream(condensed_data_idx).expect("Error during condensation");
+    }
+
     let voxelize_duration: std::time::Duration = start_time.elapsed();
     
-    writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_cols).unwrap();
+    if !no_condense {
+        writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_condensed_cols).unwrap();
+    } else {
+        writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_cols).unwrap();
+    }
 
 
     let mut vb = VoxBirch::new(
@@ -144,11 +157,18 @@ fn main() {
     );
 
     // --- STREAM READ ---
-    let read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
+    let read_binary_file;
+
+    if !no_condense {
+        read_binary_file = File::open("./tmp/grids_condensed_stream.binary.tmp");
+    } else {
+        read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
+    }
     let mut reader = BufReader::new(read_binary_file.unwrap());
 
     let mut iter: u64 = 0;
-
+    
+    writeln!(stdout,"\n#############################\nFitting grids with the VoxBirch Clustering\n#############################\n\n").unwrap();
     loop {
 
         // Read length prefix (4 bytes)
@@ -174,7 +194,12 @@ fn main() {
         // Deserialize the struct
         let grid: VoxelGrid = deserialize(&record_buf).unwrap();
 
-        let vec_grid: Vec<f32> = grid.data.into_iter().map(|x| x as f32).collect();
+        let vec_grid: Vec<f32> = if !no_condense {
+            grid.condensed_data.into_iter().map(|x| x as f32).collect()
+        } else {
+            grid.data.into_iter().map(|x| x as f32).collect()
+        };
+
         writeln!(stdout, "\nInserting {}: {}/{}", 
             &grid.title, 
             iter+1, num_rows).unwrap();
@@ -185,11 +210,13 @@ fn main() {
             iter,
             & mut stdout
         );
+
         iter += 1;
 
+        vb.first_call = false;
     }
 
-    vb.first_call = false;
+    
     
     let clustering_duration: std::time::Duration = start_time.elapsed();
     

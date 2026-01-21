@@ -1367,9 +1367,7 @@ impl VoxBirch {
         if self.first_call {
             panic!("The model has not been fitted yet.");
         }       
-
-        println!("inside of get_cluster_mol_ids");
-
+        
         let mut leaf_ptr = 
             self.dummy_leaf
                 .as_ref()

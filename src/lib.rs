@@ -11,7 +11,8 @@ pub use voxel::{
     voxelize_stream,
     VoxelGrid,
     get_recommended_info,
-    get_recommended_info_stream
+    get_recommended_info_stream,
+    condense_data_stream
 };
 pub use file_io::{
     read_mol2_file, 

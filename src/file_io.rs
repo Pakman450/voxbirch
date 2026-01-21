@@ -56,14 +56,14 @@ impl VoxMol {
 pub fn read_mol2_file_stream(
     path: &Path, 
     atom_typing: bool
-) -> Result<()> {
+) -> Result<(Vec<String>, u64)> {
 
     let file = File::open(path)?;
     let reader = io::BufReader::new(file);
 
     // Create Voxmol instance and a list to hold multiple molecules
     let mut mol = VoxMol::new(atom_typing);
-
+    let mut num_mols: u64 = 0;
     // Flags to track sections in MOL2 file
     let mut in_atom_section: bool = false;
 
@@ -155,13 +155,14 @@ pub fn read_mol2_file_stream(
 
             // Reset for next molecule
             mol = VoxMol::new(atom_typing);
+            num_mols += 1;
         }
 
     }   
 
 
 
-    Ok(())
+    Ok((all_atom_types, num_mols))
     
 }
 
