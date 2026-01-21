@@ -17,12 +17,14 @@ use std::fs::File;
 use std::io::{Write, BufWriter};
 use wincode::{deserialize};
 use std::io::{BufReader, Read};
+use sysinfo::{System, Pid, ProcessesToUpdate};
+use std::{thread, time::Duration};
 
 fn main() {
 
     // Get the current time
     let start_time = Instant::now();
-        
+
     // Argument unpacking
     let args = ArgsV::parse();
     let file_path= args.path.clone();
@@ -56,6 +58,38 @@ fn main() {
     }else {
         Box::new(std::io::stdout().lock())
     };
+
+    if args.verbosity == 3 {
+        let pid: u32 = std::process::id();
+
+        // Spawn a thread to monitor memory
+        thread::spawn(move || {
+            use std::fs::File;
+            use std::io::{BufWriter, Write};
+
+            let file = File::create("memory.log")
+                .expect("failed to create memory log");
+
+            let mut stdout_mem = BufWriter::new(file);
+            let mut system = System::new_all();
+
+            loop {
+                system.refresh_processes(
+                    ProcessesToUpdate::Some(&[Pid::from(pid as usize)]), 
+                    true
+                );
+
+                if let Some(process) = system.process(Pid::from(pid as usize)) {
+                    writeln!(stdout_mem,"RSS: {} KB", process.memory()).ok();
+                } else {
+                    writeln!(stdout_mem,"Process not found!").ok();
+                }
+                stdout_mem.flush().ok();
+                thread::sleep(Duration::from_secs(1));
+            }
+        });
+    }
+
 
     // Print the ASCII art
     voxbirch::ascii::print_ascii_art(& mut stdout,true);
@@ -167,7 +201,7 @@ fn main() {
     let mut reader = BufReader::new(read_binary_file.unwrap());
 
     let mut iter: u64 = 0;
-    
+
     writeln!(stdout,"\n#############################\nFitting grids with the VoxBirch Clustering\n#############################\n\n").unwrap();
     loop {
 
