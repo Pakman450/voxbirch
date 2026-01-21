@@ -1062,7 +1062,7 @@ pub struct VoxBirch {
     threshold: f32,
     max_branches: usize,
     index_tracker: u32,
-    first_call: bool,
+    pub first_call: bool,
     root: Option<Rc<RefCell<BFNode>>>,
     dummy_leaf: Option<Rc<RefCell<BFNode>>>,
     subcluster_centers: Option<Vec<RowDVector<f32>>>,
@@ -1213,27 +1213,6 @@ impl VoxBirch {
             }
             self.index_tracker += 1;
         }
-
-        // Get leaves by calling get_leaves()
-        let leaves = self.get_leaves();
-
-        // self.subcluster_centers = Some(leaves);
-        // Concatenate the centroids of each leaf node
-        let mut rows: Vec<RowDVector<f32>> = Vec::new();
-
-        for leaf in leaves {
-            let leaf_ref = leaf;
-            if let Some(c) = &leaf_ref.centroids {
-                for i in 0..c.nrows() {
-                    rows.push(c.row(i).into_owned());
-                }
-            }
-        }
-
-        // Assuming the centroids are a matrix and need to be reshaped
-        self.subcluster_centers = Some(rows);
-
-        self.n_features_out = self.subcluster_centers.as_ref().unwrap().len();
         
         self.first_call = false;
         return self
@@ -1353,10 +1332,18 @@ impl VoxBirch {
         self.index_tracker += 1;
 
 
-        self.first_call = false;
+        
         return self
     }
 
+
+    // BUG: This fn can give oom events prolly because 
+    // there are too many BFNodes causing too much mem allocation
+    // update: This is the reason for the crash. There is an oom event
+    // because there too many BFNodes when I pull in all of the leaves.
+    // I need to generate an algorithm that can allow users to pull
+    // only N number of leaves rather than all of the them without 
+    // sorting on all mol indices. 
     fn get_leaves(&self) -> Vec<BFNode> {
         let mut leaves = Vec::new();
         let mut leaf_ptr = 
@@ -1374,24 +1361,44 @@ impl VoxBirch {
         
         leaves
     }
-    pub fn get_cluster_mol_ids(& self) ->  Vec<Vec<(String, usize)>> {
+
+    pub fn get_cluster_mol_ids (& self) ->  Vec<Vec<(String, usize)>> {
 
         if self.first_call {
             panic!("The model has not been fitted yet.");
-        }        
+        }       
+
+        println!("inside of get_cluster_mol_ids");
+
+        let mut leaf_ptr = 
+            self.dummy_leaf
+                .as_ref()
+                .unwrap()
+                .borrow()
+                .next_leaf
+                .clone();
 
         let mut clusters_mol_id = Vec::<Vec::<(String, usize)>>::new();
-        
-        for leaf in self.get_leaves() {
 
-            if let Some(subclusters) = leaf.subclusters.as_ref() {
+        while let Some(leaf) = leaf_ptr {
+
+            if let Some(subclusters) = &leaf
+                .as_ref()
+                .borrow()
+                    .subclusters {
+
                 for subcluster in subclusters.iter() {
+
                     if let Some(mols) = subcluster.mols.as_ref() {
+
                         clusters_mol_id.push(mols.clone());
                     }
                 }
             }
+            leaf_ptr = leaf.as_ref().borrow().next_leaf.clone();
         }
+
+
 
         // Sort the clusters by the number of samples in the cluster
         // This is descending order 
