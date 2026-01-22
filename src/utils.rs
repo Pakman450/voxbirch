@@ -84,6 +84,8 @@ pub fn mem_logging() {
         use std::fs::File;
         use std::io::{BufWriter, Write};
         use std::time::{Duration, Instant};
+        use log::info;
+
         let start = Instant::now();
 
         let file = File::create("memory.log")
@@ -100,6 +102,8 @@ pub fn mem_logging() {
             let elapsed = start.elapsed().as_secs();
             if let Some(process) = system.process(Pid::from(pid as usize)) {
                 writeln!(stdout_mem,"{:.2}, {:.3} GB", elapsed, process.memory() as f32 / ( 1024 * 1024 * 1024 ) as f32 ).ok();
+                info!("{:.2}, {:.3} GB", elapsed, process.memory() as f32 / ( 1024 * 1024 * 1024 ) as f32 );
+
             } else {
                 writeln!(stdout_mem,"Process not found!").ok();
             }
