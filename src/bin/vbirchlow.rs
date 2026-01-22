@@ -233,6 +233,8 @@ fn main() {
     let path_cluster_ids: String = clustered_mol_id_string.unwrap();
     let write_to_path = Path::new(&path_cluster_ids);
 
+    // free up memory for writeout
+    std::mem::drop(vb);
 
     let _ = write_mol2s_via_cluster_ind(
         &cluster_mol_ids,
