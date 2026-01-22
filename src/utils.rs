@@ -57,15 +57,14 @@ pub fn init_logging(verbosity: u8) {
     builder.format(|buf, record| {
 
         let level_style = buf.default_level_style(record.level());
-        let level = level_style.value(record.level());
-
         let file = record.file().unwrap_or("unknown");
         let line = record.line().unwrap_or(0);
 
         writeln!(
             buf,
-            "[{} {}:{} {}] {}",
-            level,
+            "[{}{}{level_style:#} {}:{} {}] {}",
+            level_style,
+            record.level(),
             file,
             line,
             record.target(),
