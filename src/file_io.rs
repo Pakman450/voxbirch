@@ -297,6 +297,7 @@ pub fn write_mol2s_via_cluster_ind(
 
     let last_index = cluster_mol_ids.len() - 1;
     let num_digits = last_index.to_string().len();
+    let mut l_mol_lines_indices = Vec::<usize>::new();
 
     for (index, row) in cluster_mol_ids.iter().enumerate() {
         
@@ -315,50 +316,114 @@ pub fn write_mol2s_via_cluster_ind(
         // Vector to store matching lines or strings
         let mut l_titles: Vec<String> = Vec::new();
 
-        for line in &lines {
+        for (line_num, line) in lines.iter().enumerate() {
             if line.contains("Name:") {
                 let parts: Vec<&str> = 
                     line.split_whitespace().collect();
                 l_titles.push(parts[2].to_string() );
+                l_mol_lines_indices.push(line_num);
             }
         }
 
         for val in row.iter() {
 
-            // Flags to track sections in MOL2 file
-            let mut in_mol_section: bool = false;
-            let mut index_counter: usize = 0;
+            let start_line_num: usize = l_mol_lines_indices[val.1];
 
-            for line in &lines {
-
-                if line.contains("Name:") {
-                    
-                    let parts: Vec<&str> = 
-                        line.split_whitespace().collect();
-                    if parts.len() >= 2 && 
-                        val.0 == parts[2].to_string() 
-                        && val.1 == index_counter
-                    {
-                        in_mol_section = true;
-                        
-                    }
-                    index_counter += 1;
+            for line in &lines[start_line_num..] {
+                if line.ends_with("ROOT") {
+                    write!(writer,"{}\n\n", line)?;
+                    break;
                 }
-
-                if in_mol_section {
-                    if line.ends_with("ROOT") {
-                        write!(writer,"{}\n\n", line)?;
-                        break;
-                    }
-                    write!(writer,"{}\n", line)?;
-
-                    continue;
-                }
+                write!(writer,"{}\n", line)?;
+                continue;
             }
-
         }
     }
 
     Ok(())
 
 }
+
+// NOTE: Saving this function for reference. Need to double check that this function 
+// acts like the function above. 
+
+// pub fn write_mol2s_via_cluster_ind( 
+//     cluster_mol_ids :&Vec<Vec<(String, usize)>>,
+//     path: &Path,
+//     cluster_write_limit: usize
+// ) -> io::Result<()>
+// {
+//     fs::create_dir_all("./molecules")?;
+//     let lines: Vec<String> = {
+//         let file = File::open(path)?;
+//         let reader = io::BufReader::new(file);
+//         reader.lines().collect::<io::Result<_>>()?
+//     };
+
+//     let last_index = cluster_mol_ids.len() - 1;
+//     let num_digits = last_index.to_string().len();
+
+//     for (index, row) in cluster_mol_ids.iter().enumerate() {
+        
+//         if cluster_write_limit == index {
+//             break;
+//         }
+
+//         let path_file: String = format!(
+//             "./molecules/cluster_{:0width$}.mol2",
+//             index,
+//             width = num_digits
+//         );
+//         let file = File::create(path_file)?;
+//         let mut writer = BufWriter::new(file); 
+
+//         // Vector to store matching lines or strings
+//         let mut l_titles: Vec<String> = Vec::new();
+
+//         for line in &lines {
+//             if line.contains("Name:") {
+//                 let parts: Vec<&str> = 
+//                     line.split_whitespace().collect();
+//                 l_titles.push(parts[2].to_string() );
+//             }
+//         }
+
+//         for val in row.iter() {
+
+//             // Flags to track sections in MOL2 file
+//             let mut in_mol_section: bool = false;
+//             let mut index_counter: usize = 0;
+
+//             for line in &lines {
+
+//                 if line.contains("Name:") {
+                    
+//                     let parts: Vec<&str> = 
+//                         line.split_whitespace().collect();
+//                     if parts.len() >= 2 && 
+//                         val.0 == parts[2].to_string() 
+//                         && val.1 == index_counter
+//                     {
+//                         in_mol_section = true;
+                        
+//                     }
+//                     index_counter += 1;
+//                 }
+
+//                 if in_mol_section {
+//                     if line.ends_with("ROOT") {
+//                         write!(writer,"{}\n\n", line)?;
+//                         break;
+//                     }
+//                     write!(writer,"{}\n", line)?;
+
+//                     continue;
+//                 }
+//             }
+
+//         }
+//     }
+
+//     Ok(())
+
+// }
