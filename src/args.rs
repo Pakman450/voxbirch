@@ -54,4 +54,8 @@ pub struct ArgsV {
     /// Quiet mode. -q means nothign will printout to screen or to an file
     #[arg(short)]
     pub quiet: bool,
+
+    /// Memory logging mode.
+    #[arg(long)]
+    pub rss: bool,
 }

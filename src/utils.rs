@@ -2,6 +2,8 @@
 use std::io::{Write};
 use env_logger::{Builder};
 use log::LevelFilter;
+use std::{thread};
+use sysinfo::{System, Pid, ProcessesToUpdate};
 
 pub fn calc_time_breakdown (duration_mark: &std::time::Duration) -> (
     u64,
@@ -72,4 +74,37 @@ pub fn init_logging(verbosity: u8) {
     });
     
     builder.init();
+}
+
+pub fn mem_logging() {
+    let pid: u32 = std::process::id();
+
+    // Spawn a thread to monitor memory
+    thread::spawn(move || {
+        use std::fs::File;
+        use std::io::{BufWriter, Write};
+        use std::time::{Duration, Instant};
+        let start = Instant::now();
+
+        let file = File::create("memory.log")
+            .expect("failed to create memory log");
+
+        let mut stdout_mem = BufWriter::new(file);
+        let mut system = System::new_all();
+
+        loop {
+            system.refresh_processes(
+                ProcessesToUpdate::Some(&[Pid::from(pid as usize)]), 
+                true
+            );
+            let elapsed = start.elapsed().as_secs();
+            if let Some(process) = system.process(Pid::from(pid as usize)) {
+                writeln!(stdout_mem,"{:.2}, {:.3} GB", elapsed, process.memory() as f32 / ( 1024 * 1024 * 1024 ) as f32 ).ok();
+            } else {
+                writeln!(stdout_mem,"Process not found!").ok();
+            }
+            stdout_mem.flush().ok();
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
 }

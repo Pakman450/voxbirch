@@ -6,7 +6,7 @@ use voxbirch::{
 };
 use voxbirch::birch::VoxBirch;
 use voxbirch::{get_recommended_info_stream,condense_data_stream};
-use voxbirch::{ calc_time_breakdown, init_logging };
+use voxbirch::{ calc_time_breakdown, init_logging, mem_logging};
 use voxbirch::ArgsV;
 use voxbirch::VoxelGrid;
 
@@ -17,8 +17,6 @@ use std::fs::File;
 use std::io::{Write, BufWriter};
 use wincode::{deserialize};
 use std::io::{BufReader, Read};
-use sysinfo::{System, Pid, ProcessesToUpdate};
-use std::{thread, time::Duration};
 
 fn main() {
 
@@ -48,6 +46,11 @@ fn main() {
     
     init_logging(args.verbosity);
     let quiet = args.quiet;
+    let rss = args.rss;
+
+    if rss {
+        mem_logging();
+    }
 
     // Print some input info
     let mut stdout: Box<dyn Write> = if let Some(path) = &args.output_path
@@ -58,38 +61,6 @@ fn main() {
     }else {
         Box::new(std::io::stdout().lock())
     };
-
-    if args.verbosity == 3 {
-        let pid: u32 = std::process::id();
-
-        // Spawn a thread to monitor memory
-        thread::spawn(move || {
-            use std::fs::File;
-            use std::io::{BufWriter, Write};
-
-            let file = File::create("memory.log")
-                .expect("failed to create memory log");
-
-            let mut stdout_mem = BufWriter::new(file);
-            let mut system = System::new_all();
-
-            loop {
-                system.refresh_processes(
-                    ProcessesToUpdate::Some(&[Pid::from(pid as usize)]), 
-                    true
-                );
-
-                if let Some(process) = system.process(Pid::from(pid as usize)) {
-                    writeln!(stdout_mem,"RSS: {} KB", process.memory()).ok();
-                } else {
-                    writeln!(stdout_mem,"Process not found!").ok();
-                }
-                stdout_mem.flush().ok();
-                thread::sleep(Duration::from_secs(1));
-            }
-        });
-    }
-
 
     // Print the ASCII art
     voxbirch::ascii::print_ascii_art(& mut stdout,true);

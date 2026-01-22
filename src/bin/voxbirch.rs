@@ -6,7 +6,7 @@ use voxbirch::{
 };
 use voxbirch::birch::VoxBirch;
 use voxbirch::get_recommended_info;
-use voxbirch::{ calc_time_breakdown, init_logging };
+use voxbirch::{ calc_time_breakdown, init_logging, mem_logging };
 use voxbirch::ArgsV;
 
 use std::path::Path;
@@ -43,7 +43,11 @@ fn main() {
     
     init_logging(args.verbosity);
     let quiet = args.quiet;
+    let rss = args.rss;
 
+    if rss {
+        mem_logging();
+    }
     // Print some input info
     let mut stdout: Box<dyn Write> = if let Some(path) = &args.output_path
     {

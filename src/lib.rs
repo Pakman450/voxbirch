@@ -21,7 +21,7 @@ pub use file_io::{
     write_mol2s_via_cluster_ind
 };
 pub use isim::{jt_isim_real, jt_isim_binary};
-pub use utils::{calc_time_breakdown, init_logging};
+pub use utils::{calc_time_breakdown, init_logging, mem_logging};
 pub use birch::VoxBirch;
 pub use args::ArgsV;
  
@@ -225,7 +225,8 @@ mod tests {
             no_condense: false,
             atom_typing: false,
             verbosity: 0,
-            quiet: true
+            quiet: true,
+            rss: false
         };
 
         let mut stdout: Box<dyn Write> = Box::new(std::io::sink());
