@@ -1,7 +1,7 @@
 use core::panic;
 use std::path::Path;
 use std::fs::{OpenOptions,File};
-use std::io::{self, BufRead, BufWriter, Result, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Seek, Result, Write};
 use std::fs;
 use wincode_derive::{SchemaWrite, SchemaRead};
 use wincode::{serialize_into};
@@ -282,6 +282,50 @@ pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<(String, usi
 
 }
 
+fn index_molecules(path: &Path) -> Result<Vec<u64>> {
+    let file = File::open(path)?;
+    let mut reader = BufReader::new(file);
+
+    let mut indices = Vec::new();
+    let mut offset = 0u64;
+
+    loop {
+        let mut buf = String::new();
+        let bytes_read = reader.read_line(&mut buf)?;
+        if bytes_read == 0 {
+            break;
+        }
+
+        if buf.contains("Name:") {
+            indices.push( offset );
+        }
+
+        offset += bytes_read as u64;
+    }
+
+    Ok(indices)
+}
+
+fn write_molecule(
+    reader: & mut BufReader<File>, 
+    writer: & mut BufWriter<File>
+) -> std::io::Result<()> {
+
+    loop {
+        let mut buf = String::new();
+        let bytes = reader.read_line(&mut buf)?;
+        if bytes == 0 { break; }
+
+        if buf.ends_with("ROOT\n") {
+            writeln!(writer,"{}", buf).expect("Error writing line in write_molecule");
+            break;
+        }
+        write!(writer,"{}", buf).expect("Error writing line in write_molecule");
+    }
+
+    Ok(())
+}
+
 pub fn write_mol2s_via_cluster_ind( 
     cluster_mol_ids :&Vec<Vec<(String, usize)>>,
     path: &Path,
@@ -289,18 +333,17 @@ pub fn write_mol2s_via_cluster_ind(
 ) -> io::Result<()>
 {
     fs::create_dir_all("./molecules")?;
-    let lines: Vec<String> = {
-        let file = File::open(path)?;
-        let reader = io::BufReader::new(file);
-        reader.lines().collect::<io::Result<_>>()?
-    };
-
+    
     let last_index = cluster_mol_ids.len() - 1;
     let num_digits = last_index.to_string().len();
-    let mut l_mol_lines_indices = Vec::<usize>::new();
+
+    let molecular_file = File::open(path)?;
+    let mut reader = BufReader::new(molecular_file);
+
+    let l_mol_byte_indices = index_molecules(&path).expect("Can't open file");
 
     for (index, row) in cluster_mol_ids.iter().enumerate() {
-        
+
         if cluster_write_limit == index {
             break;
         }
@@ -310,33 +353,15 @@ pub fn write_mol2s_via_cluster_ind(
             index,
             width = num_digits
         );
-        let file = File::create(path_file)?;
-        let mut writer = BufWriter::new(file); 
 
-        // Vector to store matching lines or strings
-        let mut l_titles: Vec<String> = Vec::new();
-
-        for (line_num, line) in lines.iter().enumerate() {
-            if line.contains("Name:") {
-                let parts: Vec<&str> = 
-                    line.split_whitespace().collect();
-                l_titles.push(parts[2].to_string() );
-                l_mol_lines_indices.push(line_num);
-            }
-        }
+        let writer_file = File::create(&path_file)?;
+        let mut writer: BufWriter<File> = BufWriter::new(writer_file); 
 
         for val in row.iter() {
 
-            let start_line_num: usize = l_mol_lines_indices[val.1];
+            reader.seek(io::SeekFrom::Start(l_mol_byte_indices[val.1]))?;
 
-            for line in &lines[start_line_num..] {
-                if line.ends_with("ROOT") {
-                    write!(writer,"{}\n\n", line)?;
-                    break;
-                }
-                write!(writer,"{}\n", line)?;
-                continue;
-            }
+            write_molecule(& mut reader, & mut writer).expect("Error during writing mols");
         }
     }
 
@@ -344,10 +369,9 @@ pub fn write_mol2s_via_cluster_ind(
 
 }
 
-// NOTE: Saving this function for reference. Need to double check that this function 
-// acts like the function above. 
 
-// pub fn write_mol2s_via_cluster_ind( 
+// NOTE: save this as reference just in case
+// pub fn write_mol2s_via_cluster_ind_v2( 
 //     cluster_mol_ids :&Vec<Vec<(String, usize)>>,
 //     path: &Path,
 //     cluster_write_limit: usize
@@ -362,6 +386,7 @@ pub fn write_mol2s_via_cluster_ind(
 
 //     let last_index = cluster_mol_ids.len() - 1;
 //     let num_digits = last_index.to_string().len();
+//     let mut l_mol_lines_indices = Vec::<usize>::new();
 
 //     for (index, row) in cluster_mol_ids.iter().enumerate() {
         
@@ -380,47 +405,27 @@ pub fn write_mol2s_via_cluster_ind(
 //         // Vector to store matching lines or strings
 //         let mut l_titles: Vec<String> = Vec::new();
 
-//         for line in &lines {
+//         for (line_num, line) in lines.iter().enumerate() {
 //             if line.contains("Name:") {
 //                 let parts: Vec<&str> = 
 //                     line.split_whitespace().collect();
 //                 l_titles.push(parts[2].to_string() );
+//                 l_mol_lines_indices.push(line_num);
 //             }
 //         }
 
 //         for val in row.iter() {
 
-//             // Flags to track sections in MOL2 file
-//             let mut in_mol_section: bool = false;
-//             let mut index_counter: usize = 0;
+//             let start_line_num: usize = l_mol_lines_indices[val.1];
 
-//             for line in &lines {
-
-//                 if line.contains("Name:") {
-                    
-//                     let parts: Vec<&str> = 
-//                         line.split_whitespace().collect();
-//                     if parts.len() >= 2 && 
-//                         val.0 == parts[2].to_string() 
-//                         && val.1 == index_counter
-//                     {
-//                         in_mol_section = true;
-                        
-//                     }
-//                     index_counter += 1;
+//             for line in &lines[start_line_num..] {
+//                 if line.ends_with("ROOT") {
+//                     write!(writer,"{}\n\n", line)?;
+//                     break;
 //                 }
-
-//                 if in_mol_section {
-//                     if line.ends_with("ROOT") {
-//                         write!(writer,"{}\n\n", line)?;
-//                         break;
-//                     }
-//                     write!(writer,"{}\n", line)?;
-
-//                     continue;
-//                 }
+//                 write!(writer,"{}\n", line)?;
+//                 continue;
 //             }
-
 //         }
 //     }
 
