@@ -874,7 +874,7 @@ impl BFNode {
 }
 
 #[derive(Debug, Clone)]
-struct BFSubcluster {
+pub struct BFSubcluster {
     nj: u32,
     ls: Option<Vec<f32>>,
     ss: Option<Vec<f32>>,
