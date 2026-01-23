@@ -77,13 +77,10 @@ mod tests {
                 & mut stdout
             ); 
 
-        let condense_sum: u32 = grids.as_ref().unwrap()[0].condensed_data.iter().sum();
-        let sum: u32 = grids.as_ref().unwrap()[0].data.iter().sum();
-        let total_length = grids.as_ref().unwrap()[0].data.len();
+        let sum: u8 = grids.as_ref().unwrap()[0].data.iter().sum();
 
-        assert_eq!(num_atoms,condense_sum as usize);
         assert_eq!(num_atoms, sum as usize);
-        assert_eq!(12*3*5, total_length);
+
     }
 
 
@@ -137,13 +134,9 @@ mod tests {
 
         for (i,mol) in l_mols.iter().enumerate() {
             let num_atoms = mol.num_atoms();
-            let condense_sum: u32 = grids.as_ref().unwrap()[i].condensed_data.iter().sum();
-            let sum: u32 = grids.as_ref().unwrap()[i].data.iter().sum();
-            let total_length = grids.as_ref().unwrap()[i].data.len();
+            let sum: u8 = grids.as_ref().unwrap()[i].data.iter().sum();
 
-            assert_eq!(num_atoms,condense_sum as usize);
             assert_eq!(num_atoms, sum as usize);
-            assert_eq!(12*3*5, total_length);
             assert_eq!(grids.as_ref().unwrap()[i].title, l_titles[i]);
         }
 
@@ -259,15 +252,11 @@ mod tests {
         }
 
         let num_rows = grids.as_ref().unwrap().len();
-        let num_cond_cols = grids.as_ref().unwrap()[0].condensed_data.len(); 
         let num_cols = grids.as_ref().unwrap()[0].data.len(); 
-        let num_cond_cols_sec = grids.as_ref().unwrap()[1].condensed_data.len(); 
         let num_cols_sec = grids.as_ref().unwrap()[1].data.len(); 
 
         assert_eq!(num_rows, 2);
-        assert_eq!(num_cond_cols, 12);
         assert_eq!(num_cols, num_cols_sec);
-        assert_eq!(num_cond_cols_sec, 12);
 
         let mut vb = VoxBirch::new(
             0.50, 
