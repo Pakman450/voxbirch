@@ -559,7 +559,7 @@ fn find_closest_subluster(
 }
 
 #[derive(Debug, Clone)]
-struct BFNode {
+pub struct BFNode {
     threshold: f32,
     max_branches: usize,
     is_leaf: bool,
@@ -1400,7 +1400,103 @@ impl VoxBirch {
 
         return clusters_mol_id
     }
+
+    // Public method to start printing
+    pub fn print_tree(&self, max_depth: usize) {
+        print_node(self.root.as_ref().unwrap(),0, max_depth);
+    }
+
+    pub fn print_subcluster_by_mol_id<T>(&self, mol_id: &T)
+    where 
+        T: ToString
+    {
+        search_subcluster(self.root.as_ref().unwrap(), &mol_id.to_string(), 0);
+    }
+
+
+
 }
 
+pub fn search_subcluster(node: &Rc<RefCell<BFNode>>, mol_id: &String, depth: usize)
+{
 
+    let node_borrow = node.borrow();
 
+    // Print info for each subcluster
+    if let Some(subclusters) = &node_borrow.subclusters {
+        for (i, sub) in subclusters.iter().enumerate() {
+
+            let mol_ids: Vec<String> = sub.mols
+                .as_ref()
+                .unwrap()
+                .into_iter()
+                .map(|v| v.0.clone()).collect();
+
+            if mol_ids.contains(&mol_id) && node_borrow.is_leaf {
+                    // Print BFNode summary
+                println!(
+                    "{:indent$}BFNode(level={}, leaf={}, threshold={}, subclusters={})",
+                    "",
+                    depth,
+                    node_borrow.is_leaf,
+                    node_borrow.threshold,
+                    node_borrow.subclusters.as_ref().map_or(0, |v| v.len()),
+                    indent = depth * 2
+                );
+                println!(
+                    "{:indent$}Subcluster {}: nj={}, num_mol={}, mols={:?}",
+                    "",
+                    i,
+                    sub.nj,
+                    sub.mols.as_ref().unwrap().len(),
+                    sub.mols,
+                    indent = (depth + 1) * 2
+                );
+                break;
+            }
+
+            // Recurse if subcluster has a child node
+            if let Some(child) = &sub.child {
+                search_subcluster(child, &mol_id, depth + 2);
+            }
+        }
+    }
+}
+
+// Recursive helper
+pub fn print_node(node: &Rc<RefCell<BFNode>>, depth: usize, max_depth: usize ) {
+    if depth > max_depth {
+        return;
+    }
+
+    let node_borrow = node.borrow();
+
+    // Print BFNode summary
+    println!(
+        "{:indent$}BFNode(level={}, leaf={}, threshold={}, subclusters={})",
+        "",
+        depth,
+        node_borrow.is_leaf,
+        node_borrow.threshold,
+        node_borrow.subclusters.as_ref().map_or(0, |v| v.len()),
+        indent = depth * 2
+    );
+
+    // Print info for each subcluster
+    if let Some(subclusters) = &node_borrow.subclusters {
+        for (i, sub) in subclusters.iter().enumerate() {
+            println!(
+                "{:indent$}Subcluster {}: num_mols={}",
+                "",
+                i,
+                sub.nj,
+                indent = (depth + 1) * 2
+            );
+
+            // Recurse if subcluster has a child node
+            if let Some(child) = &sub.child {
+                print_node(child, depth + 2, max_depth);
+            }
+        }
+    }
+}

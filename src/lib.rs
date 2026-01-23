@@ -134,7 +134,7 @@ mod tests {
 
         for (i,mol) in l_mols.iter().enumerate() {
             let num_atoms = mol.num_atoms();
-            let sum: u8 = grids.as_ref().unwrap()[i].data.iter().sum();
+            let sum: u8 = grids.as_ref().unwrap()[i].data.iter().sum(); 
 
             assert_eq!(num_atoms, sum as usize);
             assert_eq!(grids.as_ref().unwrap()[i].title, l_titles[i]);
