@@ -143,11 +143,7 @@ fn main() {
     // Get the number of cols (which is the number of voxels)
     let num_cols;
 
-    if !no_condense {
-        num_cols = grids.as_ref().unwrap()[0].condensed_data.len(); 
-    } else{
-        num_cols = grids.as_ref().unwrap()[0].data.len(); 
-    }
+    num_cols = grids.as_ref().unwrap()[0].data.len(); 
     
     writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_cols).unwrap();
 
@@ -157,21 +153,12 @@ fn main() {
         num_cols
     );
 
-    if !no_condense {
-        for (i, grid) in grids.as_ref().unwrap().iter().enumerate(){
 
-            for (j, &value) in grid.condensed_data
-                .iter().enumerate() {
-                input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
-            }
-        }
-    } else{
-        for (i, grid) in grids.as_ref().unwrap().iter().enumerate(){
+    for (i, grid) in grids.as_ref().unwrap().iter().enumerate(){
 
-            for (j, &value) in grid.data
-                .iter().enumerate() {
-                input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
-            }
+        for (j, &value) in grid.data
+            .iter().enumerate() {
+            input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
         }
     }
 

@@ -199,11 +199,7 @@ fn main() {
         // Deserialize the struct
         let grid: VoxelGrid = deserialize(&record_buf).unwrap();
 
-        let vec_grid: Vec<f32> = if !no_condense {
-            grid.condensed_data.into_iter().map(|x| x as f32).collect()
-        } else {
-            grid.data.into_iter().map(|x| x as f32).collect()
-        };
+        let vec_grid: Vec<f32> = grid.data.into_iter().map(|x| x as f32).collect();
 
         writeln!(stdout, "\nInserting {}: {}/{}", 
             &grid.title, 

@@ -879,7 +879,6 @@ struct BFSubcluster {
     ls: Option<Vec<f32>>,
     ss: Option<Vec<f32>>,
     mols: Option<Vec<(String, usize)>>,
-    // cj: Option<Vec<f32>>,
     child: Option<Rc<RefCell<BFNode>>>,
     centroid: Option<DMatrix<f32>>,
 }

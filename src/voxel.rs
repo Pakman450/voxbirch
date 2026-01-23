@@ -9,8 +9,7 @@ use std::io::{BufReader, Read, Result};
 pub struct VoxelGrid {
     pub title : String,
     pub dims: [usize; 3],
-    pub data: Vec<u32>,    
-    pub condensed_data: Vec<u32>
+    pub data: Vec<u8>
 }
 
 impl VoxelGrid {
@@ -31,8 +30,7 @@ impl VoxelGrid {
         Self {
             title: String::new(),
             dims,
-            data: vec![0; size],
-            condensed_data: Vec::<u32>::new()
+            data: vec![0; size]
         }
     }
 
@@ -41,8 +39,8 @@ impl VoxelGrid {
         x + self.dims[0] * (y + self.dims[1] * z)
     }
 
-    fn push_condensed_data(&mut self, datum: u32) {
-        self.condensed_data.push(datum);
+    fn push_condensed_data(&mut self, datum: u8) {
+        self.data.push(datum);
     }
 }
 
@@ -244,10 +242,16 @@ pub fn condense_data_stream(condensed_data_idx: Vec<u32>)
         // Deserialize the struct
         let mut grid: VoxelGrid = deserialize(&record_buf).unwrap();
 
+        let vec_data_grid = grid.data.clone();
+
+        grid.data = Vec::<u8>::new();
+        
         for &ind in & condensed_data_idx {
 
-            grid.push_condensed_data(grid.data[ind as usize]);
+            grid.push_condensed_data(vec_data_grid[ind as usize]);
         }
+
+        drop(vec_data_grid);
 
         // --- STREAM WRITE ---
         let mut buffer = Vec::new();
@@ -279,6 +283,7 @@ pub fn voxelize(
     // create a list of voxel grids based on number of molecules
 
     let mut grids = Vec::<VoxelGrid>::new();
+    let mut num_cols: u64 = 0;
 
     let mut occupied_voxels = 0;
     let mut voxel_sum = 0;
@@ -335,10 +340,16 @@ pub fn voxelize(
         grids.push(grid);
     }
 
+    num_cols = grids[0].data.len() as u64;
+
     for grid in & mut grids{
+        let vec_data_grid = grid.data.clone();
+        
+        grid.data.clear();
+
         for &ind in & condense_data_idx {
 
-            grid.push_condensed_data(grid.data[ind as usize]);
+            grid.push_condensed_data(vec_data_grid[ind as usize]);
         }
         
     }
@@ -362,7 +373,7 @@ pub fn voxelize(
     writeln!(
         stdout,
         "Total number of occupied voxels for one grid without condensation: {}", 
-        grids[1].data.len()
+        num_cols
     ).unwrap();
     writeln!(
         stdout,
