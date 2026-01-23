@@ -7,15 +7,12 @@ pub mod utils;
 pub mod args;
 
 pub use voxel::{
-    voxelize,
     voxelize_stream,
     VoxelGrid,
-    get_recommended_info,
     get_recommended_info_stream,
     condense_data_stream
 };
 pub use file_io::{
-    read_mol2_file, 
     read_mol2_file_stream,
     write_cluster_mol_ids, 
     write_mol2s_via_cluster_ind

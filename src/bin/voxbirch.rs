@@ -1,26 +1,28 @@
-use voxbirch::voxelize;
-use voxbirch::read_mol2_file;
+use voxbirch::voxelize_stream;
+use voxbirch::read_mol2_file_stream;
 use voxbirch::{
     write_cluster_mol_ids,
     write_mol2s_via_cluster_ind
 };
 use voxbirch::birch::VoxBirch;
-use voxbirch::get_recommended_info;
-use voxbirch::{ calc_time_breakdown, init_logging, mem_logging };
+use voxbirch::{get_recommended_info_stream,condense_data_stream};
+use voxbirch::{ calc_time_breakdown, init_logging, mem_logging};
 use voxbirch::ArgsV;
+use voxbirch::VoxelGrid;
 
 use std::path::Path;
-use nalgebra::{DMatrix, RowDVector};
 use clap::Parser;
 use std::time::Instant;
 use std::fs::File;
 use std::io::{Write, BufWriter};
+use wincode::{deserialize};
+use std::io::{BufReader, Read};
 
 fn main() {
 
     // Get the current time
     let start_time = Instant::now();
-        
+
     // Argument unpacking
     let args = ArgsV::parse();
     let file_path= args.path.clone();
@@ -38,6 +40,7 @@ fn main() {
     if args.clustered_ids_path.is_none() {
         clustered_mol_id_string = Some(String::from("./clustered_mol_ids.txt"));
     }
+    // TODO: I am not using atom_typing nor condensation
     let no_condense = args.no_condense;
     let atom_typing = args.atom_typing;
     
@@ -48,6 +51,7 @@ fn main() {
     if rss {
         mem_logging();
     }
+
     // Print some input info
     let mut stdout: Box<dyn Write> = if let Some(path) = &args.output_path
     {
@@ -59,18 +63,18 @@ fn main() {
     };
 
     // Print the ASCII art
-    voxbirch::ascii::print_ascii_art(& mut stdout, false);
+    voxbirch::ascii::print_ascii_art(& mut stdout,true);
 
     // Read MOL2 file
     let path = Path::new(&file_path);
     let (
-        l_mols,
-        all_atom_types
-     ) = read_mol2_file(path, atom_typing).expect("Failed to read MOL2 file");
+        all_atom_types,
+        num_mols
+     ) = read_mol2_file_stream(path, atom_typing).expect("Failed to read MOL2 file");
 
     writeln!(stdout,"################################################").unwrap();
     writeln!(stdout,"MOL2 file path: {}", file_path).unwrap();
-    writeln!(stdout,"Number of molecules read: {}", l_mols.len()).unwrap();
+    writeln!(stdout,"Number of molecules read: {}", num_mols).unwrap();
     writeln!(stdout,"Voxel Grid Dimensions: {} x {} x {}", dimx, dimy, dimz).unwrap();
     writeln!(stdout,"Voxel Grid Resolution: {}", resolution).unwrap();
     writeln!(stdout,"Voxel Grid Origin: ({}, {}, {})", x0, y0, z0).unwrap();
@@ -80,7 +84,7 @@ fn main() {
     writeln!(stdout,"Condense Voxel Grids: {}", !no_condense).unwrap();
     writeln!(stdout,"Quiet mode: {}", quiet).unwrap();
     writeln!(stdout,"################################################").unwrap();
-
+    
     writeln!(stdout,"\nGrabbing recommended voxelization parameters...").unwrap();
     // Give user the recommended origin values for placing voxels.
     let (
@@ -93,7 +97,7 @@ fn main() {
         need_x_user,
         need_y_user,
         need_z_user
-    ) = get_recommended_info(&l_mols, resolution, x0, y0, z0);
+    ) = get_recommended_info_stream(resolution, x0, y0, z0);
     writeln!(stdout,"The recommended origin: {},{},{}", min_x.floor(), min_y.floor(), min_z.floor()).unwrap();
 
     writeln!(stdout,
@@ -116,75 +120,117 @@ fn main() {
         rec_need_x_user,
         rec_need_y_user,
         rec_need_z_user
-    ) = get_recommended_info(&l_mols, resolution, min_x.floor(), min_y.floor(), min_z.floor());
+    ) = get_recommended_info_stream(resolution, min_x.floor(), min_y.floor(), min_z.floor());
 
     writeln!(stdout,
         "Required dims from recommended origin ({},{},{}): {},{},{}", 
         min_x.floor(), min_y.floor(), min_z.floor(),
         rec_need_x_user, rec_need_y_user, rec_need_z_user
     ).unwrap();
-
     writeln!(stdout,"\nVoxelizing...").unwrap();
     // Voxelization of molecules's xyz's
-    let grids = voxelize(
-        &l_mols, 
+    let (
+        num_rows,
+        num_cols,
+        num_condensed_cols,
+        condensed_data_idx
+    ) = voxelize_stream(
         [dimx, dimy, dimz], 
         resolution, 
         x0, y0, z0, 
-        atom_typing, &all_atom_types, 
+        atom_typing,
+        all_atom_types,
         &mut stdout
-    ); 
+    ).expect("Failed to voxelize"); 
+
+    if !no_condense {
+        condense_data_stream(condensed_data_idx).expect("Error during condensation");
+    }
 
     let voxelize_duration: std::time::Duration = start_time.elapsed();
-
-    // Get the number of rows (which is the number of VoxelGrids)
-    let num_rows = grids.as_ref().unwrap().len();
-
-    // Get the number of cols (which is the number of voxels)
-    let num_cols;
-
-    num_cols = grids.as_ref().unwrap()[0].data.len(); 
     
-    writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_cols).unwrap();
-
-    // Create the DMatrix with the correct size
-    let mut input_matrix: DMatrix<f32> = DMatrix::zeros(
-        num_rows, 
-        num_cols
-    );
-
-
-    for (i, grid) in grids.as_ref().unwrap().iter().enumerate(){
-
-        for (j, &value) in grid.data
-            .iter().enumerate() {
-            input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
-        }
+    if !no_condense {
+        writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_condensed_cols).unwrap();
+    } else {
+        writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_cols).unwrap();
     }
+
 
     let mut vb = VoxBirch::new(
         threshold, 
         max_branches
     );
 
-    if !input_matrix.iter().any(|&x| x != 0.0) {
-        panic!("All of your voxels for all rows have 0.0s ");
+    // --- STREAM READ ---
+    let read_binary_file;
+
+    if !no_condense {
+        read_binary_file = File::open("./tmp/grids_condensed_stream.binary.tmp");
+    } else {
+        read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
+    }
+    let mut reader = BufReader::new(read_binary_file.unwrap());
+
+    let mut iter: u64 = 0;
+
+    writeln!(stdout,"\n#############################\nFitting grids with the VoxBirch Clustering\n#############################\n\n").unwrap();
+    loop {
+
+        // Read length prefix (4 bytes)
+        let mut len_buf = [0u8; 4];
+
+        match reader.read_exact(&mut len_buf) {
+            Ok(_) => {},
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                    break;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        let len = u32::from_le_bytes(len_buf) as usize;
+
+        // Read exactly `len` bytes
+        let mut record_buf = vec![0u8; len];
+        let _ = reader.read_exact(&mut record_buf);
+
+        // Deserialize the struct
+        let grid: VoxelGrid = deserialize(&record_buf).unwrap();
+
+        let vec_grid: Vec<f32> = grid.data.into_iter().map(|x| x as f32).collect();
+
+        writeln!(stdout, "\nInserting {}: {}/{}", 
+            &grid.title, 
+            iter+1, num_rows).unwrap();
+        // start clustering by inserting the entire data as a whole
+        vb.insert(
+            Some(&vec_grid), 
+            &grid.title,
+            iter,
+            & mut stdout
+        );
+
+        iter += 1;
+
+        vb.first_call = false;
     }
 
-    // start clustering by inserting the entire data as a whole
-    vb.cluster(
-        &input_matrix, 
-        grids.as_ref().unwrap().iter().map(|g| g.title.clone()).collect(),
-        & mut stdout
-    );
-
+    
+    
     let clustering_duration: std::time::Duration = start_time.elapsed();
-
+    
+ 
     // Get results after clustering. 
     let cluster_mol_ids: Vec<Vec<(String, usize)>> = vb.get_cluster_mol_ids();
+
     let num_clusters = cluster_mol_ids.len();
     let path_cluster_ids: String = clustered_mol_id_string.unwrap();
     let write_to_path = Path::new(&path_cluster_ids);
+
+    // free up memory for writeout
+    std::mem::drop(vb);
 
     let _ = write_mol2s_via_cluster_ind(
         &cluster_mol_ids,
@@ -232,13 +278,10 @@ fn main() {
             "sec"
         };
 
-    
-    let process_rate: f32 = if clust_secs_entire == vox_secs_entire 
-    {       
-         l_mols.len() as f32 / 0.0000000000001
+    let process_rate = if clust_secs_entire == vox_secs_entire {
+        9999999999.0
     } else {
-         l_mols.len() as f32 / (clust_secs_entire - vox_secs_entire) as f32
-
+        iter as f64 / (clust_secs_entire - vox_secs_entire)as f64
     };
 
 
