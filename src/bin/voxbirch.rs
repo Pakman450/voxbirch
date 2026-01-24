@@ -147,18 +147,23 @@ fn main() {
         condense_data_stream(condensed_data_idx).expect("Error during condensation");
     }
 
+    let num_features;
+
     let voxelize_duration: std::time::Duration = start_time.elapsed();
     
     if !no_condense {
         writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_condensed_cols).unwrap();
+        num_features = num_condensed_cols;
     } else {
         writeln!(stdout,"Shape of data: ({} molecules, {} voxels)", num_rows, num_cols).unwrap();
+        num_features = num_cols as usize;
     }
 
 
     let mut vb = VoxBirch::new(
         threshold, 
-        max_branches
+        max_branches,
+        num_features
     );
 
     // --- STREAM READ ---
@@ -213,8 +218,6 @@ fn main() {
         );
 
         iter += 1;
-
-        vb.first_call = false;
     }
 
     
