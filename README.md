@@ -86,3 +86,45 @@ clusters based on size into `molecules/`
 If you require whole list of clusters, it is written
 in `clustered_mol_ids.txt`
 
+
+## Usage
+```
+Usage: voxbirch [OPTIONS] --path <PATH>
+
+Options:
+  -p, --path <PATH>
+          Path to the MOL2 file (required) [default: mol.file]
+  -d, --dims <DIMS>
+          Dimensions of the voxel grid (x, y, z), comma separated [default: 20,20,20]
+  -r, --resolution <RESOLUTION>
+          Resolution of the voxel grid in Angstroms [default: 1.4142135]
+  -o, --origin <ORIGIN>
+          Target origin x0 y0 z0 via comma separated string [default: 0.0,0.0,0.0]
+  -t, --threshold <THRESHOLD>
+          Threshold of similarity [default: 0.65]
+  -m, --max-branches <MAX_BRANCHES>
+          Number of max branches [default: 50]
+      --clustered-ids-path <CLUSTERED_IDS_PATH>
+          Clustered mol ids output name
+      --output-path <OUTPUT_PATH>
+          Clustered mol ids output name
+  -c, --cluster-write-limit <CLUSTER_WRITE_LIMIT>
+          Number of clusters to write out [default: 10]
+      --atom-typing
+          Add atom typing
+      --no-condense
+          Do not condense voxel grids. Leaving this out condenses grids
+  -v, --verbosity...
+          Verbosity level. -v means level 1, -vvv means level 3
+  -q
+          Quiet mode. -q means nothign will printout to screen or to an file
+      --rss
+          Memory logging mode
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+```
+
+
+
