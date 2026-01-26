@@ -38,6 +38,12 @@ To clean up your binary, run
 make clean
 ```
 
+If you want to make a fresh copy (` make clean && make install`), run
+
+```
+make fresh
+```
+
 ### Example commands
 
 If you want to cluster molecules with 10 max_branches:
@@ -63,12 +69,20 @@ If you must see the debug logs for the purposes of development:
 voxbirch -p molecules.mol2 -vv > output.out 2>&1
 ```
 
-If you need low memory mode because you don't want to 
-load in too many molecules onto ram, try the 
-low memory mode version of voxbirch:
+## Outputs
 
-```
-vbirchlow -p molecules.mol2 -m 10
-```
+There are three main outputs
+1. tmp/
+2. molecules/
+2. clustered_mol_ids.txt
 
+`voxbirch` writes out grids and molecules into `tmp` 
+temporarily so users can read in large molecules 
+on-the-fly. This makes the program memory efficient. 
+
+By default, `voxbirch` will write out the top ten 
+clusters based on size into `molecules/`
+
+If you require whole list of clusters, it is written
+in `clustered_mol_ids.txt`
 
