@@ -1,4 +1,4 @@
-use nalgebra::{DMatrix, RowVector, RowDVector, VecStorage, U1, Dyn};
+use nalgebra::{DMatrix, RowVector, VecStorage, U1, Dyn};
 use core::panic;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -346,7 +346,6 @@ fn calc_centroid( ls: &Vec<f32>, nj: u32, n_features: usize) -> RowVector::<f32,
     debug_assert_eq!(ls.len(), n_features);
 
     let mut centroid = RowVector::<f32, Dyn, VecStorage<f32, U1, Dyn>>::zeros( n_features);
-    // let mut centroid = DMatrix::<f32>::zeros(max_branches + 1, n_features);
 
     for (j, &x) in ls.iter().enumerate() {
         centroid[(0, j)] = x / nj as f32;
@@ -472,13 +471,13 @@ fn split_node(
         assert!(!(subcluster.nj == 0));
         if node1_closer[idx] {
             new_node1.borrow_mut().append_subcluster(&subcluster);
-            new_subcluster1.update(subcluster, max_branches, n_features);
+            new_subcluster1.update(subcluster, n_features);
 
         // It could be possible that the second sublcuster was never updated due
         // to this if then logic. 
         } else {
             new_node2.borrow_mut().append_subcluster(&subcluster);
-            new_subcluster2.update(subcluster, max_branches, n_features);
+            new_subcluster2.update(subcluster, n_features);
         }
     }
 
@@ -840,8 +839,7 @@ impl BFNode {
             .as_mut()
             .unwrap()[row_idx]
             .update(
-                &subcluster, 
-                self.max_branches, 
+                &subcluster,
                 self.n_features 
             );
 
@@ -933,7 +931,7 @@ impl BFSubcluster {
         
     }
 
-    pub fn update(& mut self, subcluster: &BFSubcluster, max_branches: usize, n_features: usize) {
+    pub fn update(& mut self, subcluster: &BFSubcluster, n_features: usize) {
 
 
         debug!("self.nj: = {} | subcluster.nj: = {}", self.nj,subcluster.nj);
