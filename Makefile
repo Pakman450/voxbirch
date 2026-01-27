@@ -8,3 +8,6 @@ clean:
 
 fresh:
 	make clean && make install
+
+test:
+	RUST_TEST_THREADS=1 cargo test
