@@ -46,7 +46,8 @@ make fresh
 
 ### Example commands
 
-If you want to cluster molecules with 10 max_branches:
+If you want to cluster molecules with 10 max_branches,
+provide path to mol file and specify the num of max_branches:
 
 ```
 voxbirch -p molecules.mol2 -m 10

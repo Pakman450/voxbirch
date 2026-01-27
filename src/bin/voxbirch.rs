@@ -40,7 +40,6 @@ fn main() {
     if args.clustered_ids_path.is_none() {
         clustered_mol_id_string = Some(String::from("./clustered_mol_ids.txt"));
     }
-    // TODO: I am not using atom_typing nor condensation
     let no_condense = args.no_condense;
     let atom_typing = args.atom_typing;
     
@@ -243,9 +242,6 @@ fn main() {
 
     writeln!(stdout,"Writing cluster mol ids to: {:?}", write_to_path).unwrap();
     let _ = write_cluster_mol_ids(&write_to_path, &cluster_mol_ids);
-
-    // TODO: I need to write out mol2s for the 
-    // the top ranking clusters.  
 
     // Get the breakdown of elapsed time
     let (

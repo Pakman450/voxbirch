@@ -128,9 +128,16 @@ fn set_merge(
 fn max_seperation(centroids: &DMatrix<f32>) -> (usize, usize, Vec<f32>, Vec<f32>){
 
     // Get the centroid of the set
-    let n_samples: u32 = centroids.nrows().try_into().unwrap();
+    let n_samples: u32 = centroids
+        .nrows()
+        .try_into()
+        .expect("centroids don't have any rows, or doesn't fit into u32");
+
     // NOTE: row_sum adds all rows in an elementwise fashion per column. very confusing... 
-    let linear_sum: Vec<f32> = centroids.row_sum().as_slice().to_vec();
+    let linear_sum: Vec<f32> = centroids
+        .row_sum()
+        .as_slice()
+        .to_vec();
 
     let mut centroid = calc_centroid( 
         &linear_sum, 
@@ -418,7 +425,8 @@ fn split_node(
             node.prev_leaf
             .as_ref()
             .unwrap()
-            .borrow_mut().next_leaf = Some(Rc::clone( &new_node1 ));
+            .borrow_mut()
+                .next_leaf = Some(Rc::clone( &new_node1 ));
         }
 
         new_node1.borrow_mut().prev_leaf = node.prev_leaf.clone();
@@ -431,7 +439,8 @@ fn split_node(
             node.next_leaf
             .as_ref()
             .unwrap()
-            .borrow_mut().prev_leaf = Some(Rc::clone( &new_node2 ));
+            .borrow_mut()
+                .prev_leaf = Some(Rc::clone( &new_node2 ));
         }
 
     }
@@ -670,16 +679,13 @@ impl BFNode {
         new_subcluster2: &BFSubcluster
     ) {
 
-        // ind = self.subclusters.index()
         self.subclusters.as_mut().unwrap()[row_idx] = new_subcluster1.clone();
-
         self.init_centroids.as_mut().unwrap().row_mut(row_idx).copy_from(
             &new_subcluster1.centroid.clone().unwrap()
         );
         self.centroids.as_mut().unwrap().row_mut(row_idx).copy_from(
             &new_subcluster1.centroid.clone().unwrap()
         );
-        // self.centroids.unwrap()[row_idx] = new_subcluster1.centroid;
         self.append_subcluster(&new_subcluster2);
 
     }
