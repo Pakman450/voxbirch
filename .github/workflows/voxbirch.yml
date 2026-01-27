@@ -20,8 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build && Check licensures
-        run: make fresh && make deny && make about
+      - name: Build
+        run: make fresh 
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+
+      - name: Check licenses
+        run: make deny 
+
+      - name: Install cargo-about
+        run: cargo install cargo-about
+
+      - name: Generate third-party
+        run: make about
 
       - name: Run tests
         run: make test
