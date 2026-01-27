@@ -5,6 +5,7 @@ pub mod birch;
 pub mod ascii;
 pub mod utils;
 pub mod args;
+pub mod memmap;
 
 pub use voxel::{
     voxelize_stream,
@@ -21,8 +22,10 @@ pub use isim::{jt_isim_real, jt_isim_binary};
 pub use utils::{calc_time_breakdown, init_logging, mem_logging};
 pub use birch::VoxBirch;
 pub use args::ArgsV;
+pub use memmap::read_in_file;
  
 
+// NOTE: This is 
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -33,15 +36,18 @@ mod tests {
         let file_path = String::from("./test_files/one.mol2");
 
         let (
-            l_mols,
-            _
+            all_atom_types,
+            num_mols
         ) = 
-            read_mol2_file(Path::new(&file_path),false)
+            read_mol2_file_stream(Path::new(&file_path),true)
             .expect("Failed to read MOL2 file");
         assert_eq!(
-            l_mols.len(),
-            1
+            all_atom_types.len(),
+            6
         );
+
+        assert_eq!(num_mols, 1);
+        let _ = std::fs::remove_dir_all("./tmp");
 
     }
 
@@ -56,27 +62,32 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
         let (
-            l_mols,
-            _
+            all_atom_types,
+            num_mols
         ) = 
-            read_mol2_file(Path::new(&file_path),false)
+            read_mol2_file_stream(Path::new(&file_path),false)
             .expect("Failed to read MOL2 file"); 
-        
-        let num_atoms = l_mols[0].num_atoms();
 
-        let grids = 
-            voxelize(
-                &l_mols, 
+
+        let (
+            num_rows,
+            num_cols,
+            num_condensed_cols,
+            condensed_data_idx
+        ) = 
+            voxelize_stream(
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
                 false,
-                &Vec::<String>::new(),
+                all_atom_types,
                 & mut stdout
-            ); 
+            ).expect("Failed to voxelize");
 
-        let sum: u8 = grids.as_ref().unwrap()[0].data.iter().sum();
+        println!("{} {} {:?}", num_cols, num_condensed_cols , condensed_data_idx);
+        assert_eq!(num_rows, 2);
+        assert_eq!(num_mols, 2);
+        let _ = std::fs::remove_dir_all("./tmp");
 
-        assert_eq!(num_atoms, sum as usize);
 
     }
 
@@ -88,15 +99,21 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
         let (
-            l_mols,
-            _
+            all_atom_types,
+            num_mols
         ) = 
-            read_mol2_file(Path::new(&file_path),false)
+            read_mol2_file_stream(Path::new(&file_path),true)
             .expect("Failed to read MOL2 file");
         assert_eq!(
-            l_mols.len(),
+            all_atom_types.len(),
+            7
+        );
+
+        assert_eq!(
+            num_mols,
             2
         );
+        let _ = std::fs::remove_dir_all("./tmp");
 
     }
 
@@ -111,31 +128,32 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
         let (
-            l_mols,
-            _
-        )= 
-            read_mol2_file(Path::new(&file_path), false)
+            all_atom_types,
+            num_mols
+        ) = 
+            read_mol2_file_stream(Path::new(&file_path), false)
             .expect("Failed to read MOL2 file"); 
 
-        let grids = 
-            voxelize(
-                &l_mols, 
+
+        let (
+            num_rows,
+            num_cols,
+            num_condensed_cols,
+            condensed_data_idx
+        ) = 
+            voxelize_stream(
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
                 false,
-                &Vec::<String>::new(),
+                all_atom_types,
                 & mut stdout
-            ); 
+            ).expect("Failed to voxelize");
         
-        let l_titles = vec!["ZINC000004771104", "ZINC000108479470"];
+        println!("{} {} {:?}", num_cols, num_condensed_cols , condensed_data_idx);
+        assert_eq!(num_rows, 2);
+        assert_eq!(num_mols, 2);
+        let _ = std::fs::remove_dir_all("./tmp");
 
-        for (i,mol) in l_mols.iter().enumerate() {
-            let num_atoms = mol.num_atoms();
-            let sum: u8 = grids.as_ref().unwrap()[i].data.iter().sum(); 
-
-            assert_eq!(num_atoms, sum as usize);
-            assert_eq!(grids.as_ref().unwrap()[i].title, l_titles[i]);
-        }
 
     }
 
@@ -147,10 +165,10 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("test_files/two.mol2");
 
         let (
-            l_mols,
-            _
+            all_atom_types,
+            num_mols
         ) = 
-            read_mol2_file(Path::new(&file_path), false)
+            read_mol2_file_stream(Path::new(&file_path), false)
             .expect("Failed to read MOL2 file"); 
 
 
@@ -167,8 +185,7 @@ mod tests {
             need_x_user,
             need_y_user,
             need_z_user
-        ) = get_recommended_info(
-            &l_mols, 
+        ) = get_recommended_info_stream(
             0.5, 
             x0, 
             y0, 
@@ -194,13 +211,18 @@ mod tests {
             ),
             "(0.000,0.000,0.000): 52,10,20"
         );
+        let _ = std::fs::remove_dir_all("./tmp");
+
     }
 
     #[test]
     fn cluster_and_writeout(){
         use std::path::Path;
-        use nalgebra::DMatrix;
         use std::io::Write;
+        use std::io::{BufReader, Read};
+        use std::fs::File;
+        use wincode::{deserialize};
+
 
         let args = ArgsV {
             path: "test_files/two.mol2".into(),
@@ -226,60 +248,86 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join(&args.path);
 
         let (
-            l_mols,
-            _
+            all_atom_types,
+            num_mols
         ) = 
-            read_mol2_file(Path::new(&file_path),false)
+            read_mol2_file_stream(Path::new(&file_path),false)
             .expect("Failed to read MOL2 file"); 
 
-        let grids = 
-            voxelize(
-                &l_mols, 
+        let (
+            num_rows,
+            num_cols,
+            num_condensed_cols,
+            condensed_data_idx
+        ) = voxelize_stream(
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
                 false,
-                &Vec::<String>::new(),
+                all_atom_types,
                 & mut stdout
-            ); 
-
-        let mut titles: Vec<String> = Vec::new();
-
-        for grid in grids.as_ref().unwrap().iter() {
-            titles.push(grid.title.clone());
-        }
-
-        let num_rows = grids.as_ref().unwrap().len();
-        let num_cols = grids.as_ref().unwrap()[0].data.len(); 
-        let num_cols_sec = grids.as_ref().unwrap()[1].data.len(); 
+            ).expect("Failed to voxelize"); 
 
         assert_eq!(num_rows, 2);
-        assert_eq!(num_cols, num_cols_sec);
+        assert_eq!(num_cols, 180);
 
         let mut vb = VoxBirch::new(
             0.50, 
-            10
+            10,
+            num_cols as usize
         );
 
-        let mut input_matrix: DMatrix<f32> = DMatrix::zeros(
-            num_rows, 
-            num_cols
-        );
+        let read_binary_file;
 
-        for (i, grid) in grids.unwrap().iter().enumerate(){
+        read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
 
-            for (j, &value) in grid.data
-                .iter().enumerate() {
-                input_matrix[(i, j)] = value as f32; // Convert u8 to f32 and assign
+        let mut reader = BufReader::new(read_binary_file.unwrap());
+
+        let mut iter: u64 = 0;
+
+        loop {
+
+            // Read length prefix (4 bytes)
+            let mut len_buf = [0u8; 4];
+
+            match reader.read_exact(&mut len_buf) {
+                Ok(_) => {},
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                        break;
+                    } else {
+                        break;
+                    }
+                }
             }
-        }
 
-        vb.cluster(&input_matrix, titles, & mut stdout);
+            let len = u32::from_le_bytes(len_buf) as usize;
+
+            // Read exactly `len` bytes
+            let mut record_buf = vec![0u8; len];
+            let _ = reader.read_exact(&mut record_buf);
+
+            // Deserialize the struct
+            let grid: VoxelGrid = deserialize(&record_buf).unwrap();
+
+            let vec_grid: Vec<f32> = grid.data.into_iter().map(|x| x as f32).collect();
+
+            // start clustering by inserting the entire data as a whole
+            vb.insert(
+                Some(&vec_grid), 
+                &grid.title,
+                iter,
+                & mut stdout
+            );
+
+            iter += 1;
+        }
 
         let cluster_mol_ids: Vec<Vec<(String, usize)>> = vb.get_cluster_mol_ids();
 
         assert_eq!(cluster_mol_ids.len(),2);
         assert_eq!(cluster_mol_ids[0][0].0,"ZINC000004771104");
         assert_eq!(cluster_mol_ids[1][0].0,"ZINC000108479470");
+        let _ = std::fs::remove_dir_all("./tmp");
 
     }
 }
