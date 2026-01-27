@@ -29,12 +29,6 @@ jobs:
       - name: Check licenses
         run: make deny 
 
-      - name: Install cargo-about
-        run: cargo install cargo-about
-
-      - name: Generate third-party
-        run: make about
-
       - name: Run tests
         run: make test
 
