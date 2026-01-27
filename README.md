@@ -22,9 +22,11 @@ for more information.
 
 Then pull the voxbirch repository from github.
 
-`git clone https://github.com/Pakman450/voxbirch`
+```
+git clone https://github.com/Pakman450/voxbirch
+```
 
-`cd` into `voxfing`, then run 
+`cd` into `voxbirch`, then run 
 
 ```
 make install
@@ -38,7 +40,7 @@ To clean up your binary, run
 make clean
 ```
 
-If you want to make a fresh copy (` make clean && make install`), run
+If you want to make a fresh copy (`make clean && make install`), run
 
 ```
 make fresh
