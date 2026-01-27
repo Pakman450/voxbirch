@@ -25,4 +25,10 @@ jobs:
 
       - name: Run tests
         run: make test
+      
+      - name: Check licensures
+        run: make deny
+      
+      - name: Generate third-party html
+        run: make about
 

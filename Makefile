@@ -11,3 +11,9 @@ fresh:
 
 test:
 	RUST_TEST_THREADS=1 cargo test
+
+deny:
+	cargo deny check licenses
+
+about:
+	cargo about generate about.hbs --config about.toml -o THIRD_PARTY_NOTICES.html

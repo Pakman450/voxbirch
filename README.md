@@ -7,6 +7,23 @@ Reducing and Clustering using Hierarchies or BIRCH
 algorithm to efficently cluster 3D molecules at linear 
 time. 
 
+## Code is inspired by...
+Please check out these works, which are the basis for this code base
+
+- BitBIRCH: efficient clustering of large molecular libraries:
+    https://doi.org/10.1039/D5DD00030K
+- BitBIRCH Clustering Refinement Strategies:
+    https://doi.org/10.1021/acs.jcim.5c00627
+- BitBIRCH-Lean:
+    (preprint) https://www.biorxiv.org/content/10.1101/2025.10.22.684015v1
+- iSIM: instant similarity
+    https://pubs.rsc.org/en/content/articlelanding/2024/dd/d4dd00041b
+
+
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/pakman450/voxbirch/voxbirch.yml?logo=github&label=ci)
+![GitHub License](https://img.shields.io/github/license/pakman450/voxbirch)
+
+
 ## How to build
 
 ### Install `rustup`
