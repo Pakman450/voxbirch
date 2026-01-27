@@ -20,15 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build
-        run: make fresh
+      - name: Build && Check licensures
+        run: make fresh && make deny && make about
 
       - name: Run tests
         run: make test
-      
-      - name: Check licensures
-        run: make deny
-      
-      - name: Generate third-party html
-        run: make about
 
