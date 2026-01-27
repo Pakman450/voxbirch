@@ -5,7 +5,6 @@ pub mod birch;
 pub mod ascii;
 pub mod utils;
 pub mod args;
-pub mod memmap;
 
 pub use voxel::{
     voxelize_stream,
@@ -22,7 +21,6 @@ pub use isim::{jt_isim_real, jt_isim_binary};
 pub use utils::{calc_time_breakdown, init_logging, mem_logging};
 pub use birch::VoxBirch;
 pub use args::ArgsV;
-pub use memmap::read_in_file;
  
 
 // NOTE: This is 
