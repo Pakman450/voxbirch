@@ -370,10 +370,10 @@ fn calc_centroid( ls: &Vec<f32>, nj: u32, n_features: usize) -> RowVector::<f32,
 }
 
 fn split_node(
-    node_child: &Option<Rc<RefCell<BFNode>>>,
+    node_child: &Option<Rc<RefCell<VFNode>>>,
     threshold: f32,
     max_branches: usize
-)-> (BFSubcluster, BFSubcluster){
+)-> (VFSubcluster, VFSubcluster){
 
 
     let mut node = node_child.as_ref().unwrap().borrow_mut();
@@ -389,12 +389,12 @@ fn split_node(
 
         debug_assert!(!(subcluster.nj == 0));
     }
-    let mut new_subcluster1 = BFSubcluster::new(
+    let mut new_subcluster1 = VFSubcluster::new(
         None, 
         &Vec::<(String, usize)>::new(), 
         node.n_features
     );
-    let mut new_subcluster2 = BFSubcluster::new(
+    let mut new_subcluster2 = VFSubcluster::new(
         None, 
         &Vec::<(String, usize)>::new(), 
         node.n_features
@@ -403,14 +403,14 @@ fn split_node(
     // Assuming `node.n_features` is a field in your `Node` struct
     let n_features = node.n_features; 
 
-    let  new_node1 = Rc::new(RefCell::new(BFNode::new(
+    let  new_node1 = Rc::new(RefCell::new(VFNode::new(
                     threshold,
                     max_branches,
                     node.is_leaf,
                     n_features
                 )));
 
-    let  new_node2 = Rc::new(RefCell::new(BFNode::new(
+    let  new_node2 = Rc::new(RefCell::new(VFNode::new(
                     threshold,
                     max_branches,
                     node.is_leaf,
@@ -571,19 +571,19 @@ fn find_closest_subluster(
 }
 
 #[derive(Debug, Clone)]
-pub struct BFNode {
+pub struct VFNode {
     threshold: f32,
     max_branches: usize,
     is_leaf: bool,
     n_features: usize,
-    next_leaf: Option<Rc<RefCell<BFNode>>>,
-    prev_leaf: Option<Rc<RefCell<BFNode>>>,
-    subclusters: Option<Vec<BFSubcluster>>,
+    next_leaf: Option<Rc<RefCell<VFNode>>>,
+    prev_leaf: Option<Rc<RefCell<VFNode>>>,
+    subclusters: Option<Vec<VFSubcluster>>,
     init_centroids: Option<DMatrix<f32>>,
     centroids: Option<DMatrix<f32>>,
 }
 
-impl BFNode {
+impl VFNode {
     pub fn new(
         threshold: f32,
         max_branches: usize,
@@ -591,7 +591,7 @@ impl BFNode {
         n_features: usize,
 
         ) -> Self {
-        BFNode {
+        VFNode {
             threshold,
             max_branches,
             is_leaf,
@@ -604,7 +604,7 @@ impl BFNode {
         }
     }
     
-    pub fn append_subcluster (&mut self, subcluster: &BFSubcluster) {
+    pub fn append_subcluster (&mut self, subcluster: &VFSubcluster) {
        
         debug!("Before split_node procress");
         if !self.subclusters.is_none() {
@@ -675,8 +675,8 @@ impl BFNode {
     fn update_split_subclusters(
         & mut self,
         row_idx: usize , 
-        new_subcluster1: &BFSubcluster ,
-        new_subcluster2: &BFSubcluster
+        new_subcluster1: &VFSubcluster ,
+        new_subcluster2: &VFSubcluster
     ) {
 
         self.subclusters.as_mut().unwrap()[row_idx] = new_subcluster1.clone();
@@ -692,8 +692,8 @@ impl BFNode {
 
     pub fn insert_bf_subcluster(
         &mut self,
-        subcluster: &BFSubcluster,
-        parent: &BFSubcluster,
+        subcluster: &VFSubcluster,
+        parent: &VFSubcluster,
         write_out: &mut impl Write
     ) -> bool {
 
@@ -724,7 +724,7 @@ impl BFNode {
 
         // print statistics of length of various fields here
         debug!("
-            Inserting BFSubcluster: 
+            Inserting VFSubcluster: 
             threshold = {},
             max_branches = {},
             subclusters.len() = {:?}, 
@@ -880,16 +880,16 @@ impl BFNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct BFSubcluster {
+pub struct VFSubcluster {
     nj: u32,
     ls: Option<Vec<f32>>,
     ss: Option<Vec<f32>>,
     mols: Option<Vec<(String, usize)>>,
-    child: Option<Rc<RefCell<BFNode>>>,
+    child: Option<Rc<RefCell<VFNode>>>,
     centroid: Option<RowVector::<f32, Dyn, VecStorage<f32, U1, Dyn>>>,
 }
 
-impl BFSubcluster {
+impl VFSubcluster {
     pub fn new(
         linear_sum: Option<&Vec<f32>>, 
         mol_titles: &Vec<(String, usize)>, 
@@ -898,7 +898,7 @@ impl BFSubcluster {
 
         if linear_sum.as_ref() == None {
 
-            BFSubcluster {
+            VFSubcluster {
                 nj: 0,
                 ls: Some(vec![0.0; n_features]),
                 ss: Some(vec![0.0; n_features]),
@@ -917,9 +917,9 @@ impl BFSubcluster {
                     linear_sum.clone().unwrap().to_vec()
                     );
 
-            debug!("BFSubcluster.centroid = {}.", &centroid_from_vec.iter().any(|&x| x != 0.0));
+            debug!("VFSubcluster.centroid = {}.", &centroid_from_vec.iter().any(|&x| x != 0.0));
 
-            BFSubcluster {
+            VFSubcluster {
                 nj: 1,
                 ls: Some(linear_sum.clone().unwrap().to_vec()),
                 ss: Some(
@@ -937,7 +937,7 @@ impl BFSubcluster {
         
     }
 
-    pub fn update(& mut self, subcluster: &BFSubcluster, n_features: usize) {
+    pub fn update(& mut self, subcluster: &VFSubcluster, n_features: usize) {
 
 
         debug!("self.nj: = {} | subcluster.nj: = {}", self.nj,subcluster.nj);
@@ -983,7 +983,7 @@ impl BFSubcluster {
 
     fn merge_subcluster (
         & mut self, 
-        nominee_cluster: &BFSubcluster,
+        nominee_cluster: &VFSubcluster,
         threshold: f32,
         write_out: & mut impl Write
     ) -> bool {
@@ -1051,8 +1051,8 @@ impl BFSubcluster {
 pub struct VoxBirch {
     threshold: f32,
     max_branches: usize,
-    root: Option<Rc<RefCell<BFNode>>>,
-    dummy_leaf: Option<Rc<RefCell<BFNode>>>
+    root: Option<Rc<RefCell<VFNode>>>,
+    dummy_leaf: Option<Rc<RefCell<VFNode>>>
 }
 
 
@@ -1060,7 +1060,7 @@ impl VoxBirch {
     pub fn new(threshold: f32, max_branches: usize, num_features: usize) -> Self {
 
         let root = 
-            Some(Rc::new(RefCell::new(BFNode::new(
+            Some(Rc::new(RefCell::new(VFNode::new(
                 threshold,
                 max_branches,
                 true,
@@ -1069,7 +1069,7 @@ impl VoxBirch {
 
 
         let dummy_leaf =                        
-            Some(Rc::new(RefCell::new(BFNode::new(
+            Some(Rc::new(RefCell::new(VFNode::new(
                 threshold,
                 max_branches,
                 true,
@@ -1112,7 +1112,7 @@ impl VoxBirch {
                 (title.to_string(),iter as usize)
                 ];
 
-        let subcluster = BFSubcluster::new(
+        let subcluster = VFSubcluster::new(
             grid,
             &mol_indices, 
             num_features);
@@ -1138,7 +1138,7 @@ impl VoxBirch {
                 &subcluster,
                 // Here, BitBirch feeds in subcluster.parent_
                 // But since Rust is a strongly typed language
-                // we must send in BFSubcluster rather than. BFNode.
+                // we must send in VFSubcluster rather than. VFNode.
                 &subcluster,
                 stdout
         );
@@ -1153,7 +1153,7 @@ impl VoxBirch {
 
             self.root = None;
 
-            self.root = Some(Rc::new(RefCell::new(BFNode::new(
+            self.root = Some(Rc::new(RefCell::new(VFNode::new(
                 self.threshold,
                 self.max_branches,
                 false,
@@ -1177,13 +1177,13 @@ impl VoxBirch {
 
 
     // BUG: This fn can give oom events prolly because 
-    // there are too many BFNodes causing too much mem allocation
+    // there are too many VFNodes causing too much mem allocation
     // TODO: This is the reason for the crash. There is an oom event
-    // because there too many BFNodes when I pull in all of the leaves.
+    // because there too many VFNodes when I pull in all of the leaves.
     // I need to generate an algorithm that can allow users to pull
     // only N number of leaves rather than all of the them without 
     // sorting on all mol indices. 
-    fn get_leaves(&self) -> Vec<BFNode> {
+    fn get_leaves(&self) -> Vec<VFNode> {
         let mut leaves = Vec::new();
         let mut leaf_ptr = 
             self.dummy_leaf
@@ -1253,7 +1253,7 @@ impl VoxBirch {
     }
 }
 
-pub fn search_subcluster(node: &Rc<RefCell<BFNode>>, mol_id: &String, depth: usize)
+pub fn search_subcluster(node: &Rc<RefCell<VFNode>>, mol_id: &String, depth: usize)
 {
 
     let node_borrow = node.borrow();
@@ -1269,9 +1269,9 @@ pub fn search_subcluster(node: &Rc<RefCell<BFNode>>, mol_id: &String, depth: usi
                 .map(|v| v.0.clone()).collect();
 
             if mol_ids.contains(&mol_id) && node_borrow.is_leaf {
-                    // Print BFNode summary
+                    // Print VFNode summary
                 println!(
-                    "{:indent$}BFNode(level={}, leaf={}, threshold={}, subclusters={})",
+                    "{:indent$}VFNode(level={}, leaf={}, threshold={}, subclusters={})",
                     "",
                     depth,
                     node_borrow.is_leaf,
@@ -1300,16 +1300,16 @@ pub fn search_subcluster(node: &Rc<RefCell<BFNode>>, mol_id: &String, depth: usi
 }
 
 // Recursive helper
-pub fn print_node(node: &Rc<RefCell<BFNode>>, depth: usize, max_depth: usize ) {
+pub fn print_node(node: &Rc<RefCell<VFNode>>, depth: usize, max_depth: usize ) {
     if depth > max_depth {
         return;
     }
 
     let node_borrow = node.borrow();
 
-    // Print BFNode summary
+    // Print VFNode summary
     println!(
-        "{:indent$}BFNode(level={}, leaf={}, threshold={}, subclusters={})",
+        "{:indent$}VFNode(level={}, leaf={}, threshold={}, subclusters={})",
         "",
         depth,
         node_borrow.is_leaf,
