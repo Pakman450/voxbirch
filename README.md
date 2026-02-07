@@ -24,7 +24,7 @@ Please check out these works, which are the basis for this code base
 ![GitHub License](https://img.shields.io/github/license/pakman450/voxbirch)
 
 
-## How to build
+## How to build the voxbirch binary
 
 ### Install `rustup`
 You must install `cargo` by installing `rustup` to 
@@ -62,6 +62,30 @@ If you want to make a fresh copy (`make clean && make install`), run
 ```
 make fresh
 ```
+
+### How to build python wrapper functions
+
+Voxbirch allows users to install a python package. To install: 
+
+```
+make bindings
+```
+
+Then, you have to activate the virtual python env:
+
+```
+source python/.venv/bin/activate
+```
+
+This will allow users to interact with the package
+in their favorite environment:
+
+```
+python
+>>> import vb_py
+>>> vb_py.read_mol2("path/to/mol.mol2")
+```
+
 
 ### Example commands
 

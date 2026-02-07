@@ -7,13 +7,14 @@ mod vb_py {
     use std::path::Path;
 
     #[pyfunction]
+    #[pyo3(signature = (path_str, atom_typing=true))]
     fn read_mol2(     
         path_str: String, 
         atom_typing: bool
     ) -> PyResult<(Vec<String>, u64)> {
 
         let path = Path::new(&path_str);
+        
         Ok(read_mol2_file_stream(path, atom_typing)?)
-
     }
 }
