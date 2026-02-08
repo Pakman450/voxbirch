@@ -9,4 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.28.0", features = ["extension-module"] }
+wincode = "0.2.5"
+serde = "1.0.228"
+wincode-derive = "0.2.3"
 voxbirch= { path = "../" }

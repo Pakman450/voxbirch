@@ -949,7 +949,10 @@ name = "voxbirch_py"
 version = "0.1.0"
 dependencies = [
  "pyo3",
+ "serde",
  "voxbirch",
+ "wincode",
+ "wincode-derive",
 ]
 
 [[package]]
