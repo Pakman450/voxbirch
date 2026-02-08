@@ -44,21 +44,6 @@ impl VoxelGrid {
     }
 }
 
-fn get_atom_typing_index(
-    ind: usize, 
-    all_atom_types: &Vec<String>,
-    atom_type: &String,
-) -> usize {
-
-    if let Some(shifted_idx) = all_atom_types.iter().position(|x| x == atom_type)
-    {
-        return ind + shifted_idx
-    }
-
-    ind + all_atom_types.len()
-
-}
-
 pub fn voxelize_stream(
     dims: [usize; 3],
     rs: f32,
@@ -128,15 +113,19 @@ pub fn voxelize_stream(
             let iy = ((y - y0) / rs).floor() as usize;
             let iz = ((z - z0) / rs).floor() as usize;
         
-            let mut index = grid.voxel_index(ix, iy, iz);
+            let voxel_id = grid.voxel_index(ix, iy, iz);
 
-            if atom_typing {
-                index = get_atom_typing_index(
-                 index, 
-                 &all_atom_types,
-                 &mol.atom_types.as_ref().unwrap()[atom_idx]
-                );
-            }
+            let index = if atom_typing {
+                let type_idx = all_atom_types
+                    .iter()
+                    .position(|t| t == &mol.atom_types.as_ref().unwrap()[atom_idx])
+                    .unwrap_or(num_atom_types); // "other"
+
+                voxel_id * (num_atom_types + 1) + type_idx
+            } else {
+                voxel_id
+            };
+            
             // TODO:now I want the indexes around the origin of ix,iy,iz 
             // to spread the voxelization to neighboring voxels
             // for simplicity, we will just do a 3x3x3 cube around the voxel
@@ -152,7 +141,6 @@ pub fn voxelize_stream(
                 if !condense_data_idx.contains(&(index as u32)) {
                     condense_data_idx.push(index as u32);
                 }
-                
             }
 
         }
