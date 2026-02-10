@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-name = "vb_py"
+name = "voxbirch"
 crate-type = ["cdylib"]
 
 [dependencies]

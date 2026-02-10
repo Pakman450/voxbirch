@@ -3,8 +3,8 @@ use std::io::Write;
 use std::fs::{OpenOptions,File};
 use wincode_derive::{SchemaWrite, SchemaRead};
 use wincode::{deserialize, serialize_into};
-use std::io::{BufReader, Read, Result};
-
+use std::io::{BufReader, Read};
+use std::io::Result as IoResult;
 #[derive(Clone, SchemaWrite, SchemaRead)]
 pub struct VoxelGrid {
     pub title : String,
@@ -53,7 +53,7 @@ pub fn voxelize_stream(
     atom_typing: bool,
     all_atom_types: Vec<String>,
     stdout: & mut Box<dyn Write>
-) -> Result<(
+) -> IoResult<(
     u64, 
     u64,
     usize,
@@ -196,7 +196,7 @@ pub fn voxelize_stream(
 
 
 pub fn condense_data_stream(condensed_data_idx: Vec<u32>)
--> Result<()>{
+-> IoResult<()> {
 
     let mut binary_file = OpenOptions::new()
         .create(true)
@@ -204,7 +204,70 @@ pub fn condense_data_stream(condensed_data_idx: Vec<u32>)
         .open("./tmp/grids_condensed_stream.binary.tmp")?;
 
     let read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
-    let mut reader = BufReader::new(read_binary_file.unwrap());
+
+    // let mut reader = match read_binary_file {
+    //     Ok(file) => {
+    //         BufReader::new(file);
+    //     },
+    //     Err(e) => {
+    //         return Err(e.into())
+    //     }
+    // };
+
+    let mut reader = if let Ok(file) = read_binary_file {
+        BufReader::new(file)
+    } else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Failed to open grids_stream.binary.tmp for reading during condensation."
+        ).into());
+    };
+
+    loop {
+        // Read length prefix (4 bytes)
+        let mut len_buf = [0u8; 4];
+        match reader.read_exact(&mut len_buf) {
+            Ok(_) => {},
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => break, // EOF
+            Err(e) => return Err(e.into()),
+        }
+
+        let len = u32::from_le_bytes(len_buf) as usize;
+
+        // Read exactly `len` bytes
+        let mut record_buf = vec![0u8; len];
+        reader.read_exact(&mut record_buf)?;
+
+        // Deserialize the struct
+        let grid: VoxelGrid = deserialize(&record_buf).unwrap();
+
+        let vec_data_grid = grid.data.clone();
+
+        let mut condensed_grid = VoxelGrid {
+            title: grid.title.clone(),
+            dims: grid.dims,
+            data: Vec::<u8>::new()
+        };
+
+        for &ind in & condensed_data_idx {
+
+            condensed_grid.push_condensed_data(vec_data_grid[ind as usize]);
+        }
+
+        drop(vec_data_grid);
+
+        // --- STREAM WRITE ---
+        let mut buffer = Vec::new();
+        let _ = serialize_into(&mut buffer, &condensed_grid); // fills buffer
+        let len = buffer.len() as u32; 
+        // Write bytes to file
+        binary_file.write_all(&len.to_le_bytes())?;
+        binary_file.write_all(&buffer)?;
+        buffer.clear(); // reuse buffer
+
+    }
+
+    // let mut reader = BufReader::new(read_binary_file);
     
     loop {
         // Read length prefix (4 bytes)

@@ -1,7 +1,7 @@
 
 
 #[pyo3::pymodule]
-mod vb_py {
+mod voxbirch {
     use pyo3::prelude::*;
     use pyo3::ffi;
     use pyo3::{Python, PyErr};
@@ -20,6 +20,7 @@ mod vb_py {
     use std::io::{Write,Read};
     use std::fs::{self};
     use std::panic;
+    use std::io::Result as IoResult;
 
     use wincode::{deserialize};
 
@@ -267,19 +268,34 @@ mod vb_py {
         // --- RELEASE GIL ---
         let gil_state = unsafe { ffi::PyEval_SaveThread() };
 
-        match &condensed_data_idx {
+        let result: IoResult<()> = match &condensed_data_idx {
             Some(condensed_data_idx) => {
-                condense_data_stream(
-                    condensed_data_idx.to_vec()
-                ).expect("Error during condensation");
+                if condensed_data_idx.is_empty() {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Provided condensed data index is empty, skipping condensation."
+                    ))
+                } else {
+                    condense_data_stream(
+                        condensed_data_idx.to_vec()
+                    )
+                }
             },
             None => {
-                println!("No condensed data index provided, skipping condensation.");
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "No condensed data index provided, skipping condensation."
+                ))
             }
-        }
+        };
 
         // --- RE-ACQUIRE GIL ---
         unsafe { ffi::PyEval_RestoreThread(gil_state) };
+
+        match result {
+            Ok(v) => v,
+            Err(e) => panic!("Error during condensation: {}", e)
+        }
 
         Ok(())
     }
