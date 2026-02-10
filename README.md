@@ -77,13 +77,17 @@ Then, you have to activate the virtual python env:
 source python/.venv/bin/activate
 ```
 
-This will allow users to interact with the package
-in their favorite environment:
+This will allow you to interact with the package
+on your favorite python environment:
 
 ```
 python
->>> import vb_py
->>> vb_py.read_mol2("path/to/mol.mol2")
+>>> import voxbirch
+>>> voxbirch.read_mol2("path/to/mol.mol2")
+>>> ...
+>>> ...
+>>> vb = voxbirch.Voxbirch( num_features = condensed_num_cols )
+>>> vb.cluster()
 ```
 
 
