@@ -310,7 +310,7 @@ mod tests {
             let vec_grid: Vec<f32> = grid.data.into_iter().map(|x| x as f32).collect();
 
             // start clustering by inserting the entire data as a whole
-            vb.insert(
+            let _ = vb.insert(
                 Some(&vec_grid), 
                 &grid.title,
                 iter,
