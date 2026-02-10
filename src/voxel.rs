@@ -205,15 +205,6 @@ pub fn condense_data_stream(condensed_data_idx: Vec<u32>)
 
     let read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
 
-    // let mut reader = match read_binary_file {
-    //     Ok(file) => {
-    //         BufReader::new(file);
-    //     },
-    //     Err(e) => {
-    //         return Err(e.into())
-    //     }
-    // };
-
     let mut reader = if let Ok(file) = read_binary_file {
         BufReader::new(file)
     } else {
@@ -520,11 +511,7 @@ pub fn condense_data_stream(condensed_data_idx: Vec<u32>)
 
 pub fn get_recommended_info_stream(resolution: f32, x0: f32, y0: f32, z0: f32) ->
     (f32, f32, f32, usize, usize, usize, usize, usize, usize) {
-        
-    // --- STREAM READ ---
-    // let mut min_xyz = ( 0.0, 0.0, 0.0 );
-    // let mut max_xyz = ( 0.0, 0.0, 0.0 );
-    
+          
     let mut min_xyz = (f32::INFINITY, f32::INFINITY, f32::INFINITY);
     let mut max_xyz = (f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
 

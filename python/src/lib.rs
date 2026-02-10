@@ -15,6 +15,7 @@ mod voxbirch {
     };
     use voxbirch::birch::VoxBirch;
     use voxbirch::VoxelGrid;
+    use voxbirch::file_io::{write_mol2s_via_cluster_ind, write_cluster_mol_ids};
 
     use std::path::Path;
     use std::io::{Write,Read};
@@ -103,6 +104,9 @@ mod voxbirch {
             Ok(())
         }
 
+        fn get_clust_mol_ids(&self) -> PyResult<Vec<Vec<(String, usize)>>> {
+            Ok(self.inner.get_cluster_mol_ids())
+        }
     }
 
     #[pyfunction]
@@ -297,6 +301,80 @@ mod voxbirch {
             Err(e) => panic!("Error during condensation: {}", e)
         }
 
+        Ok(())
+    }
+
+    #[pyfunction]
+    #[pyo3(signature = (cluster_mol_ids=None, path_str=None, cluster_write_limit=10))]
+    fn write_mol2_via_clust_idx(
+        cluster_mol_ids: Option<Vec<Vec<(String, usize)>>>,
+        path_str: Option<String>,
+        cluster_write_limit: usize
+    ) -> PyResult<()> {
+
+        let path = match path_str {
+            Some(p) => Path::new(&p).to_path_buf(),
+            None => {
+                return Err(PyErr::new::<PyTypeError, _>(
+                    "Path string for writing mol2s is required."
+                ));
+            }
+        };
+
+        let mol_idxs = match cluster_mol_ids {
+            Some(ids) => ids,
+            None => {
+                return Err(PyErr::new::<PyTypeError, _>(
+                    "Cluster mol ids are required for writing mol2s."
+                ));
+            }
+        };
+
+        let _ = write_mol2s_via_cluster_ind(
+            &mol_idxs,
+            &path,
+            cluster_write_limit
+        );
+
+        Ok(())
+    }
+
+    #[pyfunction]
+    #[pyo3(signature = (path_str=None, cluster_mol_ids=None))]
+    fn write_clust_mol_ids(
+        path_str: Option<String>, 
+        cluster_mol_ids: Option<Vec<Vec<(String, usize)>>>
+    ) -> PyResult<()> {
+
+        let path = match path_str {
+            Some(p) => Path::new(&p).to_path_buf(),
+            None => {
+                return Err(PyErr::new::<PyTypeError, _>(
+                    "Path string for writing cluster mol ids is required."
+                ));
+            }
+        };
+
+        // Check if path isn't a folder and it has to be file
+        if path.is_dir() {
+            return Err(PyErr::new::<PyTypeError, _>(
+                "Provided path is a directory. Please provide a file path for writing cluster mol ids."
+            ));
+        }
+
+        let mol_idxs = match cluster_mol_ids {
+            Some(ids) => ids,
+            None => {
+                return Err(PyErr::new::<PyTypeError, _>(
+                    "Cluster mol ids are required for writing."
+                ));
+            }
+        };
+
+        let _ = write_cluster_mol_ids(
+            &path, 
+            &mol_idxs
+        );
         Ok(())
     }
 }
