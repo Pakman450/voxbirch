@@ -35,16 +35,28 @@ mod voxbirch {
     #[pymethods]
     impl Voxbirch {
         #[new]
+        #[pyo3(signature = (threshold=0.65, max_branches=50, num_features=None))]
         fn new(
             threshold: f32,
             max_branches: usize,
-            num_features: usize
+            num_features: Option<usize>
         ) -> Self {
+
+            let num_f = match num_features {
+                Some(n) => {
+                    if n == 0 {
+                        panic!("num_features must be greater than 0.");
+                    }
+                    n
+                },
+                None => panic!("num_features must be provided and greater than 0 before you create a Voxbirch instance.\n Provide num_features based on the number of features in your voxel grid.")
+            };
+
             Voxbirch {
                 inner: VoxBirch::new(
                     threshold, 
                     max_branches, 
-                    num_features
+                    num_f
                 )
             }
         }
@@ -70,9 +82,25 @@ mod voxbirch {
         }
         
         fn cluster(& mut self) -> PyResult<()> {
-            let read_binary_file =
-                std::fs::File::open("./tmp/grids_condensed_stream.binary.tmp")?;
-            let mut reader = std::io::BufReader::new(read_binary_file);
+
+            if !fs::metadata("./tmp").is_ok() {
+                return Err(
+                    PyErr::new::<PyTypeError, _>(
+                        "Temporary directory './tmp' not found.\nPlease ensure the previous step of reading the mol file was completed successfully\nand that the './tmp' directory is present."
+                    ));
+            }
+
+            let read_binary_file_result = fs::File::open("./tmp/grids_condensed_stream.binary.tmp");
+
+            let mut reader = match read_binary_file_result {
+                Ok(f) => std::io::BufReader::new(f),
+                Err(e) => {
+                    return Err(
+                        PyErr::new::<PyTypeError, _>(
+                            format!("Error opening binary file for clustering: {}", e)
+                        ));
+                }
+            };
 
             let mut iter: u64 = 0;
 
