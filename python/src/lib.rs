@@ -4,7 +4,9 @@
 mod vb_py {
     use pyo3::prelude::*;
     use pyo3::ffi;
-        
+    use pyo3::{Python, PyErr};
+    use pyo3::exceptions::PyTypeError;
+
     use voxbirch::{
         read_mol2_file_stream,
         get_recommended_info_stream,
@@ -15,28 +17,11 @@ mod vb_py {
     use voxbirch::VoxelGrid;
 
     use std::path::Path;
-    use std::io::{Write,BufReader,Read};
-    use std::fs::{File, self};
+    use std::io::{Write,Read};
+    use std::fs::{self};
+    use std::panic;
+
     use wincode::{deserialize};
-
-
-
-// NOTE: THIS WORKS FOR PRINTING TO JUPYTER NOTEBOOK,
-// BUT NOT FOR STREAMING OUTPUT TO A FILE (E.G. FOR LOGGING PURPOSES)
-#[pyfunction]
-fn long_running(py: Python) -> PyResult<()> {
-    let sys = py.import("sys")?;
-    let stdout = sys.getattr("stdout")?;
-
-    for i in 0..5 {
-        stdout.call_method1("write", (format!("Step {}\n", i),))?;
-        stdout.call_method0("flush")?;
-
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-
-    Ok(())
-}
 
     #[pyclass(unsendable)]
     struct Voxbirch {
@@ -60,17 +45,27 @@ fn long_running(py: Python) -> PyResult<()> {
             }
         }
 
-        fn insert(&mut self, data: Vec<f32>, title: String, iter: u64) {
-            let mut stdout: Box<dyn Write> = Box::new(std::io::stdout().lock());
-            self.inner.insert(
+        fn insert(& mut self, data: Vec<f32>, title: String, iter: u64) {
+            let mut stdsink: Box<dyn Write> = Box::new(std::io::sink());
+
+            let gil_state = unsafe { ffi::PyEval_SaveThread() };
+            
+            let result = self.inner.insert(
                 Some(&data), 
                 &title, 
                 iter, 
-                &mut stdout
-            );
+                &mut stdsink
+            );  
+
+            unsafe { ffi::PyEval_RestoreThread(gil_state) };
+
+            match result {
+                Ok(v) => v,
+                Err(e) => panic!("Error during insertion: {}", e)
+            };
         }
         
-        fn cluster(&mut self) -> PyResult<()> {
+        fn cluster(& mut self) -> PyResult<()> {
             let read_binary_file =
                 std::fs::File::open("./tmp/grids_condensed_stream.binary.tmp")?;
             let mut reader = std::io::BufReader::new(read_binary_file);
@@ -93,25 +88,13 @@ fn long_running(py: Python) -> PyResult<()> {
                     grid.data.into_iter().map(|x| x as f32).collect();
 
                 // --- PRINT (GIL is held here) ---
-                Python::try_attach(|py| -> PyResult<()> {
-                    let sys = py.import("sys")?;
-                    let stdout = sys.getattr("stdout")?;
-                    stdout.call_method1(
-                        "write",
-                        (format!("\nInserting {}: {}", grid.title, iter + 1),),
-                    )?;
-                    stdout.call_method0("flush")?;
+                let _ = Python::try_attach(|_| -> PyResult<()> {
+                    println!("Inserting {}: {}", grid.title, iter + 1);
                     Ok(())
-                }).unwrap();
+                });
 
-                // --- RELEASE GIL ---
-                let gil_state = unsafe { ffi::PyEval_SaveThread() };
-
-                // --- HEAVY RUST WORK (NO GIL) ---
+                // --- HEAVY WORK (NO GIL, but Restored after) ---
                 self.insert(vec_grid, grid.title, iter);
-
-                // --- RE-ACQUIRE GIL ---
-                unsafe { ffi::PyEval_RestoreThread(gil_state) };
 
                 iter += 1;
             }
@@ -122,24 +105,32 @@ fn long_running(py: Python) -> PyResult<()> {
     }
 
     #[pyfunction]
-    #[pyo3(signature = (path_str, atom_typing=true))]
+    #[pyo3(signature = (path_str))]
     fn read_mol2(     
-        path_str: String, 
-        atom_typing: bool
+        path_str: String
     ) -> PyResult<(Vec<String>, u64)> {
 
         let path = Path::new(&path_str);
+        // --- RELEASE GIL ---
+        let gil_state = unsafe { ffi::PyEval_SaveThread() };
 
-        Ok(read_mol2_file_stream(path, atom_typing)?)
+        let result = read_mol2_file_stream(path, true);
+
+        // --- RE-ACQUIRE GIL ---
+        unsafe { ffi::PyEval_RestoreThread(gil_state) };
+
+        let (all_atom_types, num_mols) = match result {
+            Ok(v) => v,
+            Err(e) => panic!("Error during reading in file: {}", e)
+        };
+
+        Ok((all_atom_types, num_mols))
     }
 
     #[pyfunction]
-    #[pyo3(signature = (resolution=1.4142135, x0=0.0, y0=0.0, z0=0.0))]
+    #[pyo3(signature = (resolution=1.4142135))]
     fn get_optim_ori_dims(   
-        resolution: f32,
-        x0: f32,
-        y0: f32,
-        z0: f32,  
+        resolution: f32 
     ) -> PyResult<(
         [f32; 3],
         [usize; 3]
@@ -147,60 +138,61 @@ fn long_running(py: Python) -> PyResult<()> {
 
 
         if !fs::metadata("./tmp").is_ok() {
-            panic!("Temporary directory './tmp' does not exist.\n Please ensure that the previous step of reading the mol file was completed successfully\n and that the './tmp' directory is present.");
+            return Err(
+                PyErr::new::<PyTypeError, _>(
+                    "Temporary directory './tmp' not found.\nPlease ensure the previous step of reading the mol file was completed successfully\nand that the './tmp' directory is present."
+                ));
         }
 
-        let (
-                min_x, 
-                min_y, 
-                min_z, 
-                need_x, 
-                need_y, 
-                need_z,
-                need_x_user,
-                need_y_user,
-                need_z_user
+        let gil_state = unsafe { ffi::PyEval_SaveThread() };
+
+        let result = panic::catch_unwind(|| {
+            let (
+                min_x, min_y, min_z,
+                need_x, need_y, need_z,
+                need_x_user, need_y_user, need_z_user
+            ) = get_recommended_info_stream(resolution, 0.0, 0.0, 0.0);
+
+            let (
+                _, _, _, _, _, _,
+                rec_need_x_user, rec_need_y_user, rec_need_z_user
             ) = get_recommended_info_stream(
-                resolution, 
-                x0, 
-                y0, 
-                z0
+                resolution,
+                min_x.floor(),
+                min_y.floor(),
+                min_z.floor()
             );
-        println!("The recommended origin: {},{},{}", min_x.floor(), min_y.floor(), min_z.floor());
 
-        println!(
-            "Minimal voxel grid dimensions to cover all molecules\n\t(from absolute origin {}): {},{},{}",
-            format!("{:.3},{:.3},{:.3}", min_x, min_y, min_z), need_x, need_y, need_z
-        );
-        println!(
-            "Required dims from provided origin ({:.3},{:.3},{:.3}): {},{},{}", 
-            x0, y0, z0, 
-            need_x_user, need_y_user, need_z_user
-        );
+            (
+                min_x, min_y, min_z,
+                need_x, need_y, need_z,
+                need_x_user, need_y_user, need_z_user,
+                rec_need_x_user, rec_need_y_user, rec_need_z_user
+            )
+        });
+
+        unsafe { ffi::PyEval_RestoreThread(gil_state) };
+
         let (
-            _, 
-            _, 
-            _, 
-            _, 
-            _, 
-            _,
-            rec_need_x_user,
-            rec_need_y_user,
-            rec_need_z_user
-        ) = get_recommended_info_stream(
-            resolution, 
-            min_x.floor(), 
-            min_y.floor(), 
-            min_z.floor()
-        );
-
-
-        println!(
-            "Required dims from recommended origin ({},{},{}): {},{},{}", 
-            min_x.floor(), min_y.floor(), min_z.floor(),
+            min_x, min_y, min_z,
+            need_x, need_y, need_z,
+            need_x_user, need_y_user, need_z_user,
             rec_need_x_user, rec_need_y_user, rec_need_z_user
-        );
+        ) = match result {
+            Ok(v) => v,
+            Err(e) => {
+                let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                    *s 
+                } else if let Some(s) = e.downcast_ref::<String>() {
+                    s.as_str()
+                } else {
+                    "Unknown panic"
+                };
+                panic!("Rust panic caught: {}", msg);
+            }
+        };
 
+        
         Ok(
             (
                 [min_x.floor(), min_y.floor(), min_z.floor()],
@@ -210,12 +202,11 @@ fn long_running(py: Python) -> PyResult<()> {
     }
 
     #[pyfunction]
-    #[pyo3(signature = (dims=[100,100,100], resolution=1.4142135, origin=[0.0,0.0,0.0], atom_typing=false, all_atom_types=Vec::new()))]
+    #[pyo3(signature = (dims=[100,100,100], resolution=1.4142135, origin=[0.0,0.0,0.0], all_atom_types=Vec::new()))]
     fn voxelize(
         dims: [usize; 3],
         resolution: f32,
         origin: [f32; 3],
-        atom_typing: bool,
         all_atom_types: Vec<String>
     ) -> PyResult<(
         u64,
@@ -223,24 +214,41 @@ fn long_running(py: Python) -> PyResult<()> {
         usize,
         Vec<u32>
     )> {
-        let mut stdout: Box<dyn Write> = Box::new(std::io::stdout().lock());
+
+        let atom_typing = !all_atom_types.is_empty();
+
+        if !atom_typing {
+            return Err(PyErr::new::<PyTypeError, _>(
+                "Provide `all_atom_types` for voxelization."
+            ));
+        }
+
+        let mut stdsink: Box<dyn Write> = Box::new(std::io::sink());
+        
+        // --- RELEASE GIL ---
+        let gil_state = unsafe { ffi::PyEval_SaveThread() };
+
+        let result = voxelize_stream(
+                dims, 
+                resolution, 
+                origin[0], origin[1], origin[2],
+                atom_typing,
+                all_atom_types,
+                &mut stdsink
+            );
+
+        // --- RE-ACQUIRE GIL ---
+        unsafe { ffi::PyEval_RestoreThread(gil_state) };
 
         let (
             num_rows,
             num_cols,
             num_condensed_cols,
             condensed_data_idx
-        ) = voxelize_stream(
-            dims, 
-            resolution, 
-            origin[0], origin[1], origin[2],
-            atom_typing,
-            all_atom_types,
-            &mut stdout
-        ).expect("Failed to voxelize"); 
-
-        println!("Shape of data: ({} molecules, {} voxels)", num_rows, num_cols);
-        println!("Shape of condensed data: ({} molecules, {} voxels)", num_rows, num_condensed_cols);
+            ) = match result {
+            Ok(v) => v,
+            Err(e) => panic!("Error during reading in file: {}", e)
+        };
 
         Ok((
             num_rows,
@@ -256,6 +264,8 @@ fn long_running(py: Python) -> PyResult<()> {
         condensed_data_idx: Option<Vec<u32>>
     ) -> PyResult<()> {
 
+        // --- RELEASE GIL ---
+        let gil_state = unsafe { ffi::PyEval_SaveThread() };
 
         match &condensed_data_idx {
             Some(condensed_data_idx) => {
@@ -267,6 +277,9 @@ fn long_running(py: Python) -> PyResult<()> {
                 println!("No condensed data index provided, skipping condensation.");
             }
         }
+
+        // --- RE-ACQUIRE GIL ---
+        unsafe { ffi::PyEval_RestoreThread(gil_state) };
 
         Ok(())
     }

@@ -695,7 +695,7 @@ impl VFNode {
         subcluster: &VFSubcluster,
         parent: &VFSubcluster,
         write_out: &mut impl Write
-    ) -> bool {
+    ) -> Result<bool, String> {
 
         debug!("
         subcluster insert_bf_subcluster,
@@ -711,7 +711,7 @@ impl VFNode {
 
         if self.subclusters.is_none() {
             self.append_subcluster(&subcluster);
-            return false;      
+            return Ok(false);      
         }
 
         let threshold = self.threshold;
@@ -778,10 +778,10 @@ impl VFNode {
                     );
                 }
                 self.append_subcluster(&subcluster);
-                return self.subclusters
+                return Ok(self.subclusters
                     .as_ref()
                     .unwrap()
-                    .len() > self.max_branches
+                    .len() > self.max_branches)
             }
             
             let closest_subcluster = self.subclusters.as_mut().unwrap(); // Unwrap Option to get a mutable reference
@@ -803,7 +803,7 @@ impl VFNode {
                     &row.as_ref().unwrap()
             );
 
-            return false
+            return Ok(false)
 
         }
 
@@ -822,7 +822,7 @@ impl VFNode {
                         write_out,
                 );
         
-        if split_child {
+        if split_child? {
             let (
                 new_subcluster1, new_subcluster2
             ) = split_node(
@@ -838,7 +838,7 @@ impl VFNode {
                 &new_subcluster2
             );
 
-            return self.subclusters.as_ref().unwrap().len() > self.max_branches    
+            return Ok(self.subclusters.as_ref().unwrap().len() > self.max_branches)
         }
 
         self.subclusters
@@ -874,7 +874,7 @@ impl VFNode {
                         .unwrap()
             );
 
-        return false
+        return Ok(false);
         
     }
 }
@@ -1102,8 +1102,9 @@ impl VoxBirch {
         title: &String, 
         iter: u64,    
         stdout: & mut Box<dyn Write>
-        ) -> &mut VoxBirch 
+        ) -> Result<(), String>
         {
+
 
         let num_features = grid.unwrap().len();
 
@@ -1143,7 +1144,7 @@ impl VoxBirch {
                 stdout
         );
 
-        if split {
+        if split? {
 
             let (new_subcluster1, new_subcluster2) = split_node(
                 &self.root,
@@ -1172,7 +1173,7 @@ impl VoxBirch {
 
         }
 
-        return self
+        return Ok(())
     }
 
 

@@ -209,7 +209,7 @@ fn main() {
             &grid.title, 
             iter+1, num_rows).unwrap();
         // start clustering by inserting the entire data as a whole
-        vb.insert(
+        let _ = vb.insert(
             Some(&vec_grid), 
             &grid.title,
             iter,
