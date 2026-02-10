@@ -174,5 +174,13 @@ Options:
           Print version
 ```
 
+## For Development
 
+If developers as a new package during rust development,
+they must run 
+```
+make deny && make about
+```
 
+in the root of the project and the `python` folder to 
+update the third part notices.
