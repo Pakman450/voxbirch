@@ -18,7 +18,7 @@ bindings:
 	python3 -m venv .venv && \
 	source .venv/bin/activate && \
 	pip install maturin && \
-	maturin develop
+	maturin develop --release
 
 clean:
 	cargo clean && rm -rf ./bin

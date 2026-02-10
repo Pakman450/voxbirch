@@ -14,8 +14,10 @@ mod voxbirch {
         condense_data_stream
     };
     use voxbirch::birch::VoxBirch;
-    use voxbirch::VoxelGrid;
-    use voxbirch::file_io::{write_mol2s_via_cluster_ind, write_cluster_mol_ids};
+    use voxbirch::voxel::VoxelGrid;
+    use voxbirch::file_io::{
+        write_mol2s_via_cluster_ind, write_cluster_mol_ids
+    };
 
     use std::path::Path;
     use std::io::{Write,Read};
@@ -329,12 +331,21 @@ mod voxbirch {
                 ));
             }
         };
-
-        let _ = write_mol2s_via_cluster_ind(
+        // --- RELEASE GIL ---
+        let gil_state = unsafe { ffi::PyEval_SaveThread() };
+        
+        let result = write_mol2s_via_cluster_ind(
             &mol_idxs,
             &path,
             cluster_write_limit
         );
+        // --- RE-ACQUIRE GIL ---
+        unsafe { ffi::PyEval_RestoreThread(gil_state) };
+
+        match result {
+            Ok(v) => v,
+            Err(e) => panic!("Error during writing mol2s: {}", e)
+        }
 
         Ok(())
     }
@@ -370,11 +381,22 @@ mod voxbirch {
                 ));
             }
         };
+        // --- RELEASE GIL ---
+        let gil_state = unsafe { ffi::PyEval_SaveThread() };
 
-        let _ = write_cluster_mol_ids(
+        let result = write_cluster_mol_ids(
             &path, 
             &mol_idxs
         );
+
+        // --- RE-ACQUIRE GIL ---
+        unsafe { ffi::PyEval_RestoreThread(gil_state) };
+
+        match result {
+            Ok(v) => v,
+            Err(e) => panic!("Error during writing cluster mol ids: {}", e)
+        }
+
         Ok(())
     }
 }
