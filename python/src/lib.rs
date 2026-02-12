@@ -19,7 +19,7 @@ mod voxbirch {
         write_mol2s_via_cluster_ind, 
         write_cluster_mol_ids,
         AtomTyping
-        
+
     };
 
     use std::path::Path;

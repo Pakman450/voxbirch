@@ -117,14 +117,20 @@ If you must see the debug logs for the purposes of development:
 voxbirch -p molecules.mol2 -vv > output.out 2>&1
 ```
 
+By default, atom typing is set to `explicit-type`. 
+If you need to cluster based on element only,
+`elemental-type` would suit you needs.
+Also, `no-type` will allow the clustering of no typing at all.
+
+
 ## Outputs
 
 There are three main outputs
-1. tmp/
+1. processed_mols/
 2. molecules/
 2. clustered_mol_ids.txt
 
-`voxbirch` writes out grids and molecules into `tmp` 
+`voxbirch` writes out grids and molecules into `processed_mols` 
 temporarily so users can read in large molecules 
 on-the-fly. This makes the program memory efficient. 
 
@@ -158,8 +164,8 @@ Options:
           Clustered mol ids output name
   -c, --cluster-write-limit <CLUSTER_WRITE_LIMIT>
           Number of clusters to write out [default: 10]
-      --atom-typing
-          Add atom typing
+      --atom-typing <ATOM_TYPING>
+          Add atom typing [default: explicit-type] [possible values: no-type, explicit-type, elemental-type]
       --no-condense
           Do not condense voxel grids. Leaving this out condenses grids
   -v, --verbosity...
