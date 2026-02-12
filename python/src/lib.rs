@@ -1,5 +1,4 @@
 
-
 #[pyo3::pymodule]
 mod voxbirch {
     use pyo3::prelude::*;
@@ -13,10 +12,14 @@ mod voxbirch {
         voxelize_stream,
         condense_data_stream
     };
+
     use voxbirch::birch::VoxBirch;
     use voxbirch::voxel::VoxelGrid;
     use voxbirch::file_io::{
-        write_mol2s_via_cluster_ind, write_cluster_mol_ids
+        write_mol2s_via_cluster_ind, 
+        write_cluster_mol_ids,
+        AtomTyping
+        
     };
 
     use std::path::Path;
@@ -28,8 +31,9 @@ mod voxbirch {
     use wincode::{deserialize};
 
     #[pyclass(unsendable)]
+    #[pyo3(name = "voxbirch")]
     struct Voxbirch {
-        inner: VoxBirch,  // just holds the Rust struct
+        inner: VoxBirch,
     }
 
     #[pymethods]
@@ -139,17 +143,35 @@ mod voxbirch {
         }
     }
 
+    fn get_atom_typing_enum(atom_typing_type: &String) -> Result<AtomTyping, PyErr> {
+
+        if atom_typing_type != "explicit" && atom_typing_type != "elemental" {
+            return Err(PyErr::new::<PyTypeError, _>(
+                "Invalid atom_typing_type value. Must be 'explicit' or 'elemental'."
+            ));
+        }
+        
+        if atom_typing_type == "elemental" {
+             Ok(AtomTyping::ElementalType)
+        } else {
+            Ok(AtomTyping::ExplicitType)
+        }
+    }
+
     #[pyfunction]
-    #[pyo3(signature = (path_str))]
+    #[pyo3(signature = (path_str, atom_typing_type="explicit".to_string()))]
     fn read_mol2(     
-        path_str: String
+        path_str: String,
+        atom_typing_type: String
     ) -> PyResult<(Vec<String>, u64)> {
+
+        let atom_typing_enum = get_atom_typing_enum(&atom_typing_type)?;
 
         let path = Path::new(&path_str);
         // --- RELEASE GIL ---
         let gil_state = unsafe { ffi::PyEval_SaveThread() };
 
-        let result = read_mol2_file_stream(path, true);
+        let result = read_mol2_file_stream(path, &atom_typing_enum);
 
         // --- RE-ACQUIRE GIL ---
         unsafe { ffi::PyEval_RestoreThread(gil_state) };
@@ -229,11 +251,18 @@ mod voxbirch {
     }
 
     #[pyfunction]
-    #[pyo3(signature = (dims=[100,100,100], resolution=1.4142135, origin=[0.0,0.0,0.0], all_atom_types=Vec::new()))]
+    #[pyo3(signature = (
+        dims=[100,100,100], 
+        resolution=1.4142135, 
+        origin=[0.0,0.0,0.0], 
+        atom_typing_type="explicit".to_string(), 
+        all_atom_types=Vec::new()
+    ))]
     fn voxelize(
         dims: [usize; 3],
         resolution: f32,
         origin: [f32; 3],
+        atom_typing_type: String,
         all_atom_types: Vec<String>
     ) -> PyResult<(
         u64,
@@ -242,13 +271,7 @@ mod voxbirch {
         Vec<u32>
     )> {
 
-        let atom_typing = !all_atom_types.is_empty();
-
-        if !atom_typing {
-            return Err(PyErr::new::<PyTypeError, _>(
-                "Provide `all_atom_types` for voxelization."
-            ));
-        }
+        let atom_typing_enum = get_atom_typing_enum(&atom_typing_type)?;
 
         let mut stdsink: Box<dyn Write> = Box::new(std::io::sink());
         
@@ -259,7 +282,7 @@ mod voxbirch {
                 dims, 
                 resolution, 
                 origin[0], origin[1], origin[2],
-                atom_typing,
+                &atom_typing_enum,
                 all_atom_types,
                 &mut stdsink
             );
