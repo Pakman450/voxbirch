@@ -1,4 +1,5 @@
 use clap::Parser;
+use crate::file_io::AtomTyping;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -40,8 +41,8 @@ pub struct ArgsV {
     pub cluster_write_limit: usize,
 
     /// Add atom typing
-    #[arg(long)]
-    pub atom_typing: bool,
+    #[arg(long, value_enum, default_value_t = AtomTyping::ExplicitType)]
+    pub atom_typing: AtomTyping,
 
     /// Do not condense voxel grids. Leaving this out condenses grids.
     #[arg(long)]

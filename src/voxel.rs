@@ -1,11 +1,13 @@
 
-use crate::file_io::VoxMol;
+use crate::file_io::{AtomTyping, VoxMol};
 use std::io::Write;
 use std::fs::{OpenOptions,File};
 use wincode_derive::{SchemaWrite, SchemaRead};
 use wincode::{deserialize, serialize_into};
 use std::io::{BufReader, Read};
 use std::io::Result as IoResult;
+
+
 #[derive(Clone, SchemaWrite, SchemaRead)]
 pub struct VoxelGrid {
     pub title : String,
@@ -16,16 +18,17 @@ pub struct VoxelGrid {
 impl VoxelGrid {
     pub fn new(
         dims: [usize; 3], 
-        atom_typing: bool,
+        atom_typing: &AtomTyping,
         num_atom_types: usize
     ) -> Self {
 
-        let size: usize = if atom_typing 
-        {
-            // Note: + 1 means "other" atom_types
-            dims[0] * dims[1] * dims[2] * (num_atom_types + 1)
-        } else {
-            dims[0] * dims[1] * dims[2]
+        let size: usize = match atom_typing {
+            AtomTyping::NoType => {
+                dims[0] * dims[1] * dims[2]
+            },
+            _ => {
+                dims[0] * dims[1] * dims[2] * (num_atom_types + 1)
+            }
         };
 
         Self {
@@ -60,7 +63,7 @@ impl VoxelGrid {
 /// * `dims` - The dimensions of the voxel grid (number of voxels in x, y, and z directions).
 /// * `rs` - The resolution of the voxel grid (the size of each voxel).
 /// * `x0`, `y0`, `z0` - The origin coordinates for voxelization.
-/// * `atom_typing` - A boolean indicating whether to use atom typing in the voxelization process.
+/// * `atom_typing` - A AtomTyping enum type indicating whether specific atomtyping in the voxelization process. See AtomTyping enum for more details.
 /// * `all_atom_types` - A vector of all atom types present in the dataset, used for atom typing if `atom_typing` is true.
 /// * `stdout` - A mutable reference to a writer for outputting progress and information during the voxelization process.
 /// # Returns
@@ -81,7 +84,7 @@ impl VoxelGrid {
 /// let x0 = 0.0;
 /// let y0 = 0.0;
 /// let z0 = 0.0;
-/// let atom_typing = true;
+/// let atom_typing = AtomTyping::ElementalType;
 /// let all_atom_types = vec!["C".to_string(), "O".to_string(), "N".to_string(), "S".to_string(), "H".to_string()];
 /// 
 /// let (num_rows, num_cols, num_occupied_voxels, occupied_voxel_indices) = voxelize_stream(
@@ -90,7 +93,7 @@ impl VoxelGrid {
 ///     x0,
 ///     y0,
 ///     z0,
-///     atom_typing,
+///     &atom_typing,
 ///     all_atom_types,
 ///     &mut Box::new(std::io::stdout())
 /// );
@@ -101,7 +104,7 @@ pub fn voxelize_stream(
     x0: f32,
     y0: f32,
     z0: f32,
-    atom_typing: bool,
+    atom_typing: &AtomTyping,
     all_atom_types: Vec<String>,
     stdout: & mut Box<dyn Write>
 ) -> IoResult<(
@@ -166,15 +169,18 @@ pub fn voxelize_stream(
         
             let voxel_id = grid.voxel_index(ix, iy, iz);
 
-            let index = if atom_typing {
-                let type_idx = all_atom_types
-                    .iter()
-                    .position(|t| t == &mol.atom_types.as_ref().unwrap()[atom_idx])
-                    .unwrap_or(num_atom_types); // "other"
+            let index = match atom_typing {
+                AtomTyping::NoType =>{
+                    voxel_id
+                }
+                _ => {
+                    let type_idx = all_atom_types
+                        .iter()
+                        .position(|t| t == &mol.atom_types.as_ref().unwrap()[atom_idx])
+                        .unwrap_or(num_atom_types); // "other"
 
-                voxel_id * (num_atom_types + 1) + type_idx
-            } else {
-                voxel_id
+                    voxel_id * (num_atom_types + 1) + type_idx
+                }
             };
             
             // TODO:now I want the indexes around the origin of ix,iy,iz 
@@ -207,10 +213,15 @@ pub fn voxelize_stream(
         num_rows += 1;
         
     }
-    let total_voxels = if atom_typing {
-            dims[0] * dims[1] * dims[2] * ( num_atom_types + 1 ) * num_rows as usize
-    } else {
+
+
+    let total_voxels = match atom_typing{
+        AtomTyping::NoType => {
             dims[0] * dims[1] * dims[2] * num_rows as usize
+        },
+        _ => {
+            dims[0] * dims[1] * dims[2] * (num_atom_types + 1) * num_rows as usize
+        }
     };
 
     writeln!(

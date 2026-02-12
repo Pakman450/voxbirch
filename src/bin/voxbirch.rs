@@ -69,7 +69,10 @@ fn main() {
     let (
         all_atom_types,
         num_mols
-     ) = read_mol2_file_stream(path, atom_typing).expect("Failed to read MOL2 file");
+     ) = read_mol2_file_stream(
+        path, 
+        &atom_typing
+    ).expect("Failed to read MOL2 file");
 
     writeln!(stdout,"################################################").unwrap();
     writeln!(stdout,"MOL2 file path: {}", file_path).unwrap();
@@ -79,7 +82,7 @@ fn main() {
     writeln!(stdout,"Voxel Grid Origin: ({}, {}, {})", x0, y0, z0).unwrap();
     writeln!(stdout,"Thresold: {}", threshold).unwrap();
     writeln!(stdout,"Max Branches: {}", max_branches).unwrap();
-    writeln!(stdout,"Enforce Atom Typing: {}", atom_typing).unwrap();
+    writeln!(stdout,"Enforce Atom Typing: {:?}", atom_typing).unwrap();
     writeln!(stdout,"Condense Voxel Grids: {}", !no_condense).unwrap();
     writeln!(stdout,"Quiet mode: {}", quiet).unwrap();
     writeln!(stdout,"################################################").unwrap();
@@ -137,7 +140,7 @@ fn main() {
         [dimx, dimy, dimz], 
         resolution, 
         x0, y0, z0, 
-        atom_typing,
+        &atom_typing,
         all_atom_types,
         &mut stdout
     ).expect("Failed to voxelize"); 

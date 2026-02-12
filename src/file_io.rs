@@ -5,6 +5,16 @@ use std::io::{self, BufRead, BufReader, BufWriter, Seek, Result, Write};
 use std::fs;
 use wincode_derive::{SchemaWrite, SchemaRead};
 use wincode::{serialize_into};
+use clap::ValueEnum;
+
+
+#[derive(PartialEq, Clone, ValueEnum, Debug)]
+pub enum AtomTyping {
+    NoType,
+    ExplicitType,
+    ElementalType
+}
+
 
 #[derive(Clone, Debug, SchemaWrite, SchemaRead)]
 pub struct VoxMol {
@@ -16,23 +26,26 @@ pub struct VoxMol {
 }
 
 impl VoxMol {
-    pub fn new(atom_typing: bool) -> Self {
+    pub fn new(atom_typing: &AtomTyping) -> Self {
 
-        if atom_typing {
-            return Self {
-                title: String::new(),
-                x: Vec::new(),
-                y: Vec::new(),
-                z: Vec::new(),
-                atom_types: Some(Vec::new())
-            }
-        } else {
-            return Self {
-                title: String::new(),
-                x: Vec::new(),
-                y: Vec::new(),
-                z: Vec::new(),
-                atom_types: None
+        match atom_typing {
+            AtomTyping::NoType => {
+                return Self {
+                    title: String::new(),
+                    x: Vec::new(),
+                    y: Vec::new(),
+                    z: Vec::new(),
+                    atom_types: None
+                }
+            },
+            _ => {
+                return Self {
+                    title: String::new(),
+                    x: Vec::new(),
+                    y: Vec::new(),
+                    z: Vec::new(),
+                    atom_types: Some(Vec::new())
+                }
             }
         }
     }
@@ -71,7 +84,7 @@ fn create_folder_n_exists(path: &str) -> Result<()> {
 /// Returns a tuple containing a vector of all unique atom types and the total number of molecules processed.
 /// # Arguments
 /// * `path` - A reference to the path of the MOL2 file to be read
-/// * `atom_typing` - A boolean flag indicating whether to extract atom types
+/// * `atom_typing` - A AtomTyping enum type indicating how to extract atom type information from the MOL2 file. See AtomTyping enum for more details.
 ///   # Returns
 ///     * `Result<(Vec<String>, u64)>` - A result containing a tuple of a vector of unique atom types and the total number of molecules, or an error if the file cannot be read
 /// # Errors
@@ -80,13 +93,14 @@ fn create_folder_n_exists(path: &str) -> Result<()> {
 /// ```
 /// use std::path::Path;
 /// let path = Path::new("molecules.mol2");
-/// let (all_atom_types, num_mols) = read_mol2_file_stream(&path, true).expect("Failed to read MOL2 file");
+/// let atom_typing = AtomTyping::ExplicitType; // or AtomTyping::ElementalType, or AtomTyping::NoType
+/// let (all_atom_types, num_mols) = read_mol2_file_stream(&path, &atom_typing).expect("Failed to read MOL2 file");
 /// println!("Unique atom types: {:?}", all_atom_types);
 /// println!("Number of molecules: {}", num_mols);
 /// ``` 
 pub fn read_mol2_file_stream(
     path: &Path, 
-    atom_typing: bool
+    atom_typing: &AtomTyping
 ) -> Result<(Vec<String>, u64)> {
 
     let file = File::open(path)?;
@@ -151,26 +165,63 @@ pub fn read_mol2_file_stream(
                 mol.y.push(y);
                 mol.z.push(z);
                 
-                if atom_typing {
-                    let at_type =  parts[5]
-                        .parse()
-                        .unwrap_or(
-                            "other".into()
-                        );
+                // Depending on the atom typing method, 
+                // extract the appropriate atom type information and store it in the VoxMol struct.
+                match atom_typing {
+                    AtomTyping::ExplicitType => 
+                    {
+                        let at_extype: String =  parts[5]
+                            .parse()
+                            .unwrap_or(
+                                "other".into()
+                            );
 
-                    if !all_atom_types.contains(&at_type) {
-                        all_atom_types.push(
-                            at_type.clone()
-                        );
-                    }
+                        if !all_atom_types.contains(&at_extype) {
+                            all_atom_types.push(
+                                at_extype.clone()
+                            );
+                        }
 
-                    mol.atom_types
-                    .as_mut()
-                    .unwrap()
-                    .push(
-                        at_type.clone()
-                    );
+                        mol.atom_types
+                        .as_mut()
+                        .unwrap()
+                        .push(
+                            at_extype.clone()
+                        );
+                    },
+                    AtomTyping::ElementalType => 
+                    {
+                        let at_extype: String =  parts[5]
+                            .parse()
+                            .unwrap_or(
+                                "other".into()
+                            );
+                        let chars: Vec<char> = at_extype.chars().collect(); 
+
+                        let first_char = chars[0];
+
+                        // NOTE: I don't know know if this is the best way to 
+                        // check if the first character is an alphabetic character. 
+                        if !first_char.is_ascii_alphabetic() {
+                            panic!("Unexpected atom type format: {}", at_extype);
+                        }
+
+                        if !all_atom_types.contains(&first_char.to_string()) {
+                            all_atom_types.push(
+                                first_char.to_string()
+                            );
+                        }
+
+                        mol.atom_types
+                        .as_mut()
+                        .unwrap()
+                        .push(
+                            first_char.to_string()
+                        );
+                    },
+                    AtomTyping::NoType => {}
                 }
+
             }
         }
 
