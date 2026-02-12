@@ -169,9 +169,9 @@ fn main() {
     let read_binary_file;
 
     if !no_condense {
-        read_binary_file = File::open("./tmp/grids_condensed_stream.binary.tmp");
+        read_binary_file = File::open("./processed_mols/grids_condensed_stream.binary");
     } else {
-        read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
+        read_binary_file = File::open("./processed_mols/grids_stream.binary");
     }
     let mut reader = BufReader::new(read_binary_file.unwrap());
 

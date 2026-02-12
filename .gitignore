@@ -3,6 +3,7 @@ target
 clustered_mol_ids*.txt
 /molecules
 /tmp
+/processed_mols
 BLANK*
 .venv
 venv

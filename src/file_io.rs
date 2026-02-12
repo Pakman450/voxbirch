@@ -46,11 +46,44 @@ impl VoxMol {
     }
 }
 
-//
+
+fn create_folder_n_exists(path: &str) -> Result<()> {
+
+    if fs::metadata(path).is_err() {
+        fs::create_dir_all(path)?;
+    } else {
+        println!("Directory '{}' already exists. Writing files to this directory.", path);
+        println!("    Ignore if you starting fresh.");
+    }
+
+    Ok(())
+}
 
 //TODO: make sure that the tmp folder is being written
 // the any pre exisiting tmp. if you don't do this,
 // it will use the previous file. 
+
+/// Reads a MOL2 file and extracts the title, x, y, z coordinates of heavy atoms, and optionally atom types.
+/// Writes each molecule as a binary file in a streaming manner to avoid high memory usage.
+/// Compatible with DOCK6 output MOL2 files, which may have a "Name:" as the
+/// first header information before the "@<TRIPOS>MOLECULE" section. If "Name:" is present, 
+/// it will use the line following "Name:" as the title of the molecule; otherwise, it will use the line following "@<TRIPOS>MOLECULE" as the title.
+/// Returns a tuple containing a vector of all unique atom types and the total number of molecules processed.
+/// # Arguments
+/// * `path` - A reference to the path of the MOL2 file to be read
+/// * `atom_typing` - A boolean flag indicating whether to extract atom types
+///   # Returns
+///     * `Result<(Vec<String>, u64)>` - A result containing a tuple of a vector of unique atom types and the total number of molecules, or an error if the file cannot be read
+/// # Errors
+/// * Returns an error if the specified file cannot be opened or read
+/// # Example
+/// ```
+/// use std::path::Path;
+/// let path = Path::new("molecules.mol2");
+/// let (all_atom_types, num_mols) = read_mol2_file_stream(&path, true).expect("Failed to read MOL2 file");
+/// println!("Unique atom types: {:?}", all_atom_types);
+/// println!("Number of molecules: {}", num_mols);
+/// ``` 
 pub fn read_mol2_file_stream(
     path: &Path, 
     atom_typing: bool
@@ -64,23 +97,33 @@ pub fn read_mol2_file_stream(
     let mut num_mols: u64 = 0;
     // Flags to track sections in MOL2 file
     let mut in_atom_section: bool = false;
-
+    let mut in_molecule_section: bool = false;
     let mut all_atom_types: Vec<String> = Vec::new();
 
-    fs::create_dir_all("./tmp")?;
+    create_folder_n_exists("./processed_mols")?;
 
     let binary_file: Option<File>;
 
     binary_file = Some(OpenOptions::new()
         .create(true)
         .write(true)
-        .open("./tmp/mols_stream.binary.tmp")?);
-
+        .open("./processed_mols/mols_stream.binary")?);
 
     // Read file line by line
     for line in reader.lines() {
 
         let line = line?;
+
+        if line.starts_with("@<TRIPOS>MOLECULE") {
+            in_molecule_section = true;
+            continue;
+        }
+
+        if in_molecule_section{
+            mol.title = line.trim().to_string();
+            in_molecule_section = false;
+            continue;
+        }
 
         if line.starts_with("@<TRIPOS>ATOM") {
             in_atom_section = true;
@@ -91,15 +134,6 @@ pub fn read_mol2_file_stream(
             in_atom_section = false;
             continue;
         }
-
-        if line.contains("Name:") {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 2 {
-                mol.title = parts[2].to_string();
-            }
-            continue;
-        }
-
 
         if in_atom_section {
             // Parse atom line to extract x, y, z coordinates
@@ -142,7 +176,6 @@ pub fn read_mol2_file_stream(
 
         if !in_atom_section && !mol.x.is_empty() {
 
-            // --- STREAM WRITE ---
             let mut buffer = Vec::new();
             let _ = serialize_into(&mut buffer, &mol); // fills buffer
             let len = buffer.len() as u32; 
@@ -158,13 +191,36 @@ pub fn read_mol2_file_stream(
 
     }   
 
-
-
     Ok((all_atom_types, num_mols))
     
 }
 
 
+/// Writes the cluster molecule IDs to a specified file path in a structured format.
+/// If the input vector is already ordered, it will be written in that order.
+/// Each molecule ID is written with its corresponding index within the cluster.
+/// Each cluster will be separated by a blank line for readability.
+/// # Arguments
+/// * `path` - A reference to the path where the cluster molecule IDs will be written
+/// * `cluster_mol_ids` - A reference to a vector of vectors containing tuples of molecule IDs and their corresponding indices
+/// # Returns
+/// * `Result<()>` - A result indicating success or failure of the write operation
+/// # Errors
+/// * Returns an error if the specified file cannot be created or written to
+/// # Example
+/// ```
+/// use std::path::Path;
+/// let cluster_mol_ids = vec![vec![("mol1".to_string(), 0)], vec![("mol2".to_string(), 1)]];
+/// let path =  Path::new("cluster_mol_ids.txt");
+/// write_cluster_mol_ids(&path, &cluster_mol_ids).expect("Failed to write cluster molecule IDs");
+/// ```
+/// The output file will have the following format:
+/// index: 0
+/// mol 0: mol1
+/// mol 1: mol4
+/// index: 1
+/// mol 1: mol2
+/// Each cluster is separated by a blank line for readability.
 pub fn write_cluster_mol_ids(path: &Path, cluster_mol_ids: &Vec<Vec<(String, usize)>>) -> Result<()>  {
 
     let file = File::create(path)?;
@@ -190,6 +246,9 @@ fn index_molecules(path: &Path) -> Result<Vec<u64>> {
     let mut indices = Vec::new();
     let mut offset = 0u64;
 
+    let mut if_contains_name: bool = false;
+    let mut offset_before: u64 = 0u64;
+
     loop {
         let mut buf = String::new();
         let bytes_read = reader.read_line(&mut buf)?;
@@ -198,8 +257,18 @@ fn index_molecules(path: &Path) -> Result<Vec<u64>> {
         }
 
         if buf.contains("Name:") {
-            indices.push( offset );
+            if_contains_name = true;
+            offset_before = offset;
         }
+
+        if buf.contains("@<TRIPOS>MOLECULE") {
+            if !if_contains_name {
+                indices.push( offset );
+            } else {
+                indices.push( offset_before );
+            }
+            if_contains_name = false;
+        } 
 
         offset += bytes_read as u64;
     }
@@ -227,14 +296,34 @@ fn write_molecule(
     Ok(())
 }
 
+/// Writes the clustered molecule IDs to separate MOL2 files based on their cluster indices.
+/// Each cluster will be written to a separate file named "cluster_{index}.mol2" in the "./molecules" directory.
+/// # Arguments
+/// * `cluster_mol_ids` - A reference to a vector of vectors containing tuples of molecule IDs and their corresponding indices for each cluster
+/// * `path` - A reference to the path of the original MOL2 file containing all molecules
+/// * `cluster_write_limit` - A limit on the number of clusters to write (if set to 0, all clusters will be written)
+/// # Returns
+/// * `Result<()>` - A result indicating success or failure of the write operation
+/// # Errors
+/// * Returns an error if the specified file cannot be opened, read, or written to
+/// # Example
+/// ```
+/// use std::path::Path;
+/// let cluster_mol_ids = vec![vec![("mol1".to_string(), 0)], vec![("mol2".to_string(), 1)]];
+/// let path =  Path::new("molecules.mol2");
+/// write_mol2s_via_cluster_ind(&cluster_mol_ids, &path, 0).expect("Failed to write clustered MOL2 files");
+/// ```
+/// This will create two files: "./molecules/cluster_00.mol2" containing "mol1" and "./molecules/cluster_01.mol2" containing "mol2
+/// Note: The function assumes that the original MOL2 file is structured in a way that allows for sequential reading of molecules based on their byte offsets, and that each molecule ends with a line containing "ROOT". The `cluster_write_limit` parameter can be used to limit the number of clusters written to files, which can be useful for testing or when dealing with a large number of clusters.
 pub fn write_mol2s_via_cluster_ind( 
     cluster_mol_ids :&Vec<Vec<(String, usize)>>,
     path: &Path,
     cluster_write_limit: usize
 ) -> io::Result<()>
 {
-    fs::create_dir_all("./molecules")?;
-    
+
+    create_folder_n_exists("./molecules")?;
+
     let last_index = cluster_mol_ids.len() - 1;
     let num_digits = last_index.to_string().len();
 

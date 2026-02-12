@@ -1,3 +1,4 @@
+
 use crate::file_io::VoxMol;
 use std::io::Write;
 use std::fs::{OpenOptions,File};
@@ -44,6 +45,56 @@ impl VoxelGrid {
     }
 }
 
+/// This function performs a streaming version of voxelization. It reads molecules from a binary file, voxelizes them one at a time, and writes the resulting voxel grids to another binary file. It also keeps track of the number of occupied voxels and the total number of heavy atoms voxelized, and returns this information along with the number of rows (molecules) and columns (voxels) in the resulting grids. 
+/// Note: This function assumes that the input binary file is structured in a way that allows for
+/// sequential reading of molecule records, and that each record can be deserialized into a VoxMol struct. The function also assumes that the coordinates of the atoms in the molecules are stored in the x, y, and z fields of the VoxMol struct. 
+/// The function writes the voxel grids to an output binary file in a way that allows for sequential reading of the grids later on, with each grid being serialized and prefixed with its length in bytes. 
+/// The function also computes a list of indices for occupied voxels across all grids, which can be used for data condensation later on. 
+/// The function returns a tuple containing the number of rows (molecules), the number of columns (voxels) in each grid, the number of unique occupied voxels across all grids, and a vector of the indices of these occupied voxels. 
+/// This streaming approach allows for voxelization of large datasets that cannot fit into memory all at once, as it processes one molecule and its corresponding grid at a time. 
+/// The function also writes intermediate results to the provided stdout for monitoring progress and understanding the voxelization process. 
+/// Overall, this function is designed to efficiently voxelize large molecular datasets while keeping track of important statistics about the resulting voxel grids. 
+/// Note: The function does not perform any data condensation itself, but it prepares the necessary information (the list of occupied voxel indices) for a subsequent condensation step that can be performed after all grids have been generated. 
+/// The function also assumes that the output binary file is structured in a way that allows for sequential writing of voxel grid records, with each record being serialized and prefixed with its length in bytes. 
+/// # Arguments
+/// * `dims` - The dimensions of the voxel grid (number of voxels in x, y, and z directions).
+/// * `rs` - The resolution of the voxel grid (the size of each voxel).
+/// * `x0`, `y0`, `z0` - The origin coordinates for voxelization.
+/// * `atom_typing` - A boolean indicating whether to use atom typing in the voxelization process.
+/// * `all_atom_types` - A vector of all atom types present in the dataset, used for atom typing if `atom_typing` is true.
+/// * `stdout` - A mutable reference to a writer for outputting progress and information during the voxelization process.
+/// # Returns
+/// A tuple containing:
+/// * `num_rows` - The number of rows (molecules) in the resulting voxel grids.
+/// * `num_cols` - The number of columns (voxels) in each grid.
+/// * `condensed_data_idx.len()` - The number of unique occupied voxels across all grids.
+/// * `condense_data_idx` - A vector of the indices of the occupied voxels across all grids, which can be used for data condensation later on.
+/// # Errors
+/// The function returns an `IoResult` which may contain an error if there are issues with
+///     file I/O operations, such as reading from the input binary file or writing to the output binary file. 
+/// The function also assumes that the input binary file is properly formatted and that the deserialization of molecule records into VoxMol structs succeeds; if these assumptions are violated, the function may panic or return an error. 
+/// Overall, this function is designed to efficiently voxelize large molecular datasets while keeping track of important statistics about the resulting voxel grids, and it prepares the necessary information for subsequent data condensation steps. 
+/// # Example
+/// ```
+///
+/// let resolution = 1.0;
+/// let x0 = 0.0;
+/// let y0 = 0.0;
+/// let z0 = 0.0;
+/// let atom_typing = true;
+/// let all_atom_types = vec!["C".to_string(), "O".to_string(), "N".to_string(), "S".to_string(), "H".to_string()];
+/// 
+/// let (num_rows, num_cols, num_occupied_voxels, occupied_voxel_indices) = voxelize_stream(
+///     [100, 100, 100],
+///     1.0,
+///     x0,
+///     y0,
+///     z0,
+///     atom_typing,
+///     all_atom_types,
+///     &mut Box::new(std::io::stdout())
+/// );
+/// ```
 pub fn voxelize_stream(
     dims: [usize; 3],
     rs: f32,
@@ -68,10 +119,10 @@ pub fn voxelize_stream(
     let mut binary_file = OpenOptions::new()
         .create(true)
         .write(true)
-        .open("./tmp/grids_stream.binary.tmp")?;
+        .open("./processed_mols/grids_stream.binary")?;
 
     // --- STREAM READ ---
-    let read_binary_file = File::open("./tmp/mols_stream.binary.tmp")?;
+    let read_binary_file = File::open("./processed_mols/mols_stream.binary")?;
     let mut reader = BufReader::new(read_binary_file);
 
     let mut condense_data_idx = Vec::<u32>::new();
@@ -195,15 +246,31 @@ pub fn voxelize_stream(
 }
 
 
+/// This function performs data condensation on the voxel grids that were generated in a streaming fashion. It reads the voxel grids from the intermediate binary file, condenses the data by keeping only the values at the specified indices of occupied voxels, and writes the condensed voxel grids to a new binary file. 
+/// Note: This function assumes that the input binary file is structured in a way that allows for
+/// sequential reading of voxel grid records, and that each record can be deserialized into a VoxelGrid struct. The function also assumes that the output binary file is structured in a way that allows for sequential writing of voxel grid records, with each record being serialized and prefixed with its length in bytes. 
+/// The function takes a vector of indices corresponding to the occupied voxels across all grids, and
+/// for each voxel grid read from the input file, it creates a new condensed grid that contains only the values at these indices. The condensed grids are then written to the output binary file in a way that allows for sequential reading later on. 
+/// The function returns an `IoResult` which may contain an error if there are issues with file I/O operations, such as reading from the input binary file or writing to the output binary file. 
+/// Overall, this function is designed to efficiently condense the voxel grid data generated in a streaming fashion, while keeping track of important statistics about the resulting condensed voxel grids. 
+/// # Arguments
+/// * `condensed_data_idx` - A vector of indices corresponding to the occupied voxels across all grids, which should be kept in the condensed voxel grids.
+/// # Returns
+/// An `IoResult` which may contain an error if there are issues with file I/O operations during the condensation process. 
+/// # Example
+/// ```
+/// let condensed_data_idx = vec![0, 5, 10, 15, 20]; // Example indices of occupied voxels
+/// condense_data_stream(condensed_data_idx).expect("Error during condensation");
+/// ```
 pub fn condense_data_stream(condensed_data_idx: Vec<u32>)
 -> IoResult<()> {
 
     let mut binary_file = OpenOptions::new()
         .create(true)
         .write(true)
-        .open("./tmp/grids_condensed_stream.binary.tmp")?;
+        .open("./processed_mols/grids_condensed_stream.binary")?;
 
-    let read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
+    let read_binary_file = File::open("./processed_mols/grids_stream.binary");
 
     let mut reader = if let Ok(file) = read_binary_file {
         BufReader::new(file)
@@ -506,16 +573,48 @@ pub fn condense_data_stream(condensed_data_idx: Vec<u32>)
 //     )
 // }
 
-
-
-
+/// This function computes the minimum and maximum coordinates across all molecules, and then calculates the required dimensions of the voxel grid to cover all molecules from both the recommended origin (based on minimum coordinates) and the user-provided origin. 
+/// Note: This function assumes that the input binary file is structured in a way that allows for
+/// sequential reading of molecule records, and that each record can be deserialized into a VoxMol
+/// struct. The function also assumes that the coordinates of the atoms in the molecules are stored in the x, y, and z fields of the VoxMol struct. 
+/// The function returns a tuple containing the minimum coordinates across all molecules, the required dimensions of the
+/// voxel grid to cover all molecules from the recommended origin, and the required dimensions of the voxel grid to cover all molecules from the user-provided origin. 
+/// The function is designed to efficiently compute the necessary information for voxelization without needing to load all
+/// molecule data into memory at once, making it suitable for large datasets.
+/// # Arguments
+/// * `resolution` - The resolution of the voxel grid (the size of each voxel).
+/// * `x0`, `y0`, `z0` - The origin coordinates for voxelization, provided by the user.
+/// # Returns
+/// A tuple containing:
+/// * `min_x`, `min_y`, `min_z` - The minimum coordinates across all molecules, which can be used as the recommended origin for voxelization.
+/// * `need_x`, `need_y`, `need_z` - The required dimensions of the voxel grid to cover all molecules from the recommended origin (based on minimum coordinates).
+/// * `need_x_user`, `need_y_user`, `need_z_user` - The required dimensions of the voxel grid to cover all molecules from the user-provided origin.
+/// # Errors
+/// The function returns an `IoResult` which may contain an error if there are issues with file I/O operations, such as reading from the input binary file. 
+/// The function also assumes that the input binary file is properly formatted and that the deserialization of molecule records into
+/// VoxMol structs succeeds; if these assumptions are violated, the function may panic or return an error. 
+/// Overall, this function is designed to efficiently compute the necessary information for voxelization from a large
+/// dataset of molecules stored in a binary file, while keeping track of important statistics about the coordinate ranges and required voxel grid dimensions. 
+/// # Example
+/// ```
+/// let resolution = 1.0;
+/// let x0 = 0.0;
+/// let y0 = 0.0;
+/// let z0 = 0.0;
+/// let (min_x, min_y, min_z, need_x, need_y, need_z, need_x_user, need_y_user, need_z_user) = get_recommended_info_stream(
+///     resolution,
+///     x0,
+///     y0,
+///     z0
+/// ).expect("Error computing recommended info from stream");
+/// ```
 pub fn get_recommended_info_stream(resolution: f32, x0: f32, y0: f32, z0: f32) ->
     (f32, f32, f32, usize, usize, usize, usize, usize, usize) {
           
     let mut min_xyz = (f32::INFINITY, f32::INFINITY, f32::INFINITY);
     let mut max_xyz = (f32::NEG_INFINITY, f32::NEG_INFINITY, f32::NEG_INFINITY);
 
-    let read_binary_file = File::open("./tmp/mols_stream.binary.tmp");
+    let read_binary_file = File::open("./processed_mols/mols_stream.binary");
     let mut reader = BufReader::new(read_binary_file.unwrap());
     loop {
         // Read length prefix (4 bytes)

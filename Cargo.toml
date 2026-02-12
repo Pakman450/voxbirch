@@ -10,6 +10,9 @@ repository = "https://github.com/Pakman450/voxbirch"
 name = "voxbirch"
 path = "src/bin/voxbirch.rs"
 
+[lib]
+doctest = false
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4.2", features = ["derive"] }

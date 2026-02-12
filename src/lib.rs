@@ -45,7 +45,7 @@ mod tests {
         );
 
         assert_eq!(num_mols, 1);
-        let _ = std::fs::remove_dir_all("./tmp");
+        let _ = std::fs::remove_dir_all("./processed_mols");
 
     }
 
@@ -84,7 +84,7 @@ mod tests {
         println!("{} {} {:?}", num_cols, num_condensed_cols , condensed_data_idx);
         assert_eq!(num_rows, 2);
         assert_eq!(num_mols, 2);
-        let _ = std::fs::remove_dir_all("./tmp");
+        let _ = std::fs::remove_dir_all("./processed_mols");
 
 
     }
@@ -111,7 +111,7 @@ mod tests {
             num_mols,
             2
         );
-        let _ = std::fs::remove_dir_all("./tmp");
+        let _ = std::fs::remove_dir_all("./processed_mols");
 
     }
 
@@ -150,7 +150,7 @@ mod tests {
         println!("{} {} {:?}", num_cols, num_condensed_cols , condensed_data_idx);
         assert_eq!(num_rows, 2);
         assert_eq!(num_mols, 2);
-        let _ = std::fs::remove_dir_all("./tmp");
+        let _ = std::fs::remove_dir_all("./processed_mols");
 
 
     }
@@ -276,7 +276,7 @@ mod tests {
 
         let read_binary_file;
 
-        read_binary_file = File::open("./tmp/grids_stream.binary.tmp");
+        read_binary_file = File::open("./processed_mols/grids_stream.binary");
 
         let mut reader = BufReader::new(read_binary_file.unwrap());
 
@@ -325,7 +325,7 @@ mod tests {
         assert_eq!(cluster_mol_ids.len(),2);
         assert_eq!(cluster_mol_ids[0][0].0,"ZINC000004771104");
         assert_eq!(cluster_mol_ids[1][0].0,"ZINC000108479470");
-        let _ = std::fs::remove_dir_all("./tmp");
+        let _ = std::fs::remove_dir_all("./processed_mols");
 
     }
 }

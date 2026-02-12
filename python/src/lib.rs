@@ -83,14 +83,14 @@ mod voxbirch {
         
         fn cluster(& mut self) -> PyResult<()> {
 
-            if !fs::metadata("./tmp").is_ok() {
+            if !fs::metadata("./processed_mols").is_ok() {
                 return Err(
                     PyErr::new::<PyTypeError, _>(
-                        "Temporary directory './tmp' not found.\nPlease ensure the previous step of reading the mol file was completed successfully\nand that the './tmp' directory is present."
+                        "Processed molecules directory './processed_mols' not found.\nPlease ensure the previous step of reading the mol file was completed successfully\nand that the './processed_mols' directory is present."
                     ));
             }
 
-            let read_binary_file_result = fs::File::open("./tmp/grids_condensed_stream.binary.tmp");
+            let read_binary_file_result = fs::File::open("./processed_mols/grids_condensed_stream.binary");
 
             let mut reader = match read_binary_file_result {
                 Ok(f) => std::io::BufReader::new(f),
@@ -170,14 +170,6 @@ mod voxbirch {
         [f32; 3],
         [usize; 3]
     )> {
-
-
-        if !fs::metadata("./tmp").is_ok() {
-            return Err(
-                PyErr::new::<PyTypeError, _>(
-                    "Temporary directory './tmp' not found.\nPlease ensure the previous step of reading the mol file was completed successfully\nand that the './tmp' directory is present."
-                ));
-        }
 
         let gil_state = unsafe { ffi::PyEval_SaveThread() };
 
