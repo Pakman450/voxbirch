@@ -13,6 +13,7 @@ pub use voxel::{
     condense_data_stream
 };
 pub use file_io::{
+    AtomTyping,
     read_mol2_file_stream,
     write_cluster_mol_ids, 
     write_mol2s_via_cluster_ind
@@ -37,7 +38,7 @@ mod tests {
             all_atom_types,
             num_mols
         ) = 
-            read_mol2_file_stream(Path::new(&file_path),true)
+            read_mol2_file_stream(Path::new(&file_path), &AtomTyping::ExplicitType)
             .expect("Failed to read MOL2 file");
         assert_eq!(
             all_atom_types.len(),
@@ -63,7 +64,7 @@ mod tests {
             all_atom_types,
             num_mols
         ) = 
-            read_mol2_file_stream(Path::new(&file_path),false)
+            read_mol2_file_stream(Path::new(&file_path), &AtomTyping::NoType)
             .expect("Failed to read MOL2 file"); 
 
 
@@ -76,7 +77,7 @@ mod tests {
             voxelize_stream(
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
-                false,
+                &AtomTyping::ExplicitType,
                 all_atom_types,
                 & mut stdout
             ).expect("Failed to voxelize");
@@ -100,7 +101,7 @@ mod tests {
             all_atom_types,
             num_mols
         ) = 
-            read_mol2_file_stream(Path::new(&file_path),true)
+            read_mol2_file_stream(Path::new(&file_path), &AtomTyping::ExplicitType)
             .expect("Failed to read MOL2 file");
         assert_eq!(
             all_atom_types.len(),
@@ -129,7 +130,7 @@ mod tests {
             all_atom_types,
             num_mols
         ) = 
-            read_mol2_file_stream(Path::new(&file_path), false)
+            read_mol2_file_stream(Path::new(&file_path), &AtomTyping::ExplicitType)
             .expect("Failed to read MOL2 file"); 
 
 
@@ -142,7 +143,7 @@ mod tests {
             voxelize_stream(
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
-                false,
+                &AtomTyping::NoType,
                 all_atom_types,
                 & mut stdout
             ).expect("Failed to voxelize");
@@ -166,7 +167,7 @@ mod tests {
             all_atom_types,
             num_mols
         ) = 
-            read_mol2_file_stream(Path::new(&file_path), false)
+            read_mol2_file_stream(Path::new(&file_path), &AtomTyping::NoType)
             .expect("Failed to read MOL2 file"); 
 
 
@@ -233,7 +234,7 @@ mod tests {
             output_path: Some(String::from("./voxbirch.out")),
             cluster_write_limit: 100,
             no_condense: false,
-            atom_typing: false,
+            atom_typing: AtomTyping::NoType,
             verbosity: 0,
             quiet: true,
             rss: false
@@ -249,7 +250,7 @@ mod tests {
             all_atom_types,
             num_mols
         ) = 
-            read_mol2_file_stream(Path::new(&file_path),false)
+            read_mol2_file_stream(Path::new(&file_path),&AtomTyping::NoType)
             .expect("Failed to read MOL2 file"); 
 
         let (
@@ -260,7 +261,7 @@ mod tests {
         ) = voxelize_stream(
                 [12, 3, 5], 
                 2.0, 0.0, 0.0, 0.0,
-                false,
+                &AtomTyping::NoType,
                 all_atom_types,
                 & mut stdout
             ).expect("Failed to voxelize"); 
