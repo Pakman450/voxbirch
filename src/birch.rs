@@ -579,7 +579,6 @@ pub struct VFNode {
     next_leaf: Option<Rc<RefCell<VFNode>>>,
     prev_leaf: Option<Rc<RefCell<VFNode>>>,
     subclusters: Option<Vec<VFSubcluster>>,
-    init_centroids: Option<DMatrix<f32>>,
     centroids: Option<DMatrix<f32>>,
 }
 
@@ -599,7 +598,6 @@ impl VFNode {
             next_leaf: None,
             prev_leaf: None,
             subclusters: None,
-            init_centroids: Some(DMatrix::<f32>::zeros(max_branches+1, n_features)),
             centroids: Some(DMatrix::<f32>::zeros(max_branches+1, n_features)),
         }
     }
@@ -629,7 +627,7 @@ impl VFNode {
 
         debug_assert!(!(subcluster.nj == 0));
         // This also returns the index for the last subcluster via index. 
-        // We need this to update the init_centroids and centroids matrices.
+        // We need this to update the and centroids matrices.
         // remember n_samples is zero-indexed. so 5 means the 6th index. 
         // This is important for copying the centroid row to the correct index.
         // n_samples is actually used to update centroid matrices for 
@@ -651,24 +649,13 @@ impl VFNode {
 
         debug!("subclusters.len() = {}, after = {}", n_samples , &self.subclusters.as_ref().unwrap().len() );
 
-        // copy the centroid into the init_centroid
-        // n_samples is the last index BEFORE we pushed into subclusters. 
-        let num_rows = self.init_centroids.as_ref().unwrap().nrows();
-        if n_samples < num_rows {
-            self.init_centroids.as_mut().unwrap().row_mut(n_samples).copy_from(&centroid);
-        } else {
-            error!("n_samples out of bounds. init_centroids has {} rows, but tried to access {}th row", num_rows, n_samples+1);
-        }
 
-        // I am gonna keep this here for now.
-        // This code copies all centroids at once.
-        // I wonder why would you do this? 
-        // maybe there is a reason to overwrite all centroids at once.
-        self.centroids.as_mut().unwrap().rows_mut(0, n_samples+1).copy_from(
-            &self.init_centroids.as_ref().unwrap().view(
-            (0,0), 
-            (n_samples+1, self.init_centroids.as_ref().unwrap().ncols())
-        ));
+        let num_rows = self.centroids.as_ref().unwrap().nrows();
+        if n_samples < num_rows {
+            self.centroids.as_mut().unwrap().row_mut(n_samples).copy_from(&centroid);
+        } else {
+            error!("n_samples out of bounds. centroids has {} rows, but tried to access {}th row", num_rows, n_samples+1);
+        }
         
     }
 
@@ -680,9 +667,6 @@ impl VFNode {
     ) {
 
         self.subclusters.as_mut().unwrap()[row_idx] = new_subcluster1.clone();
-        self.init_centroids.as_mut().unwrap().row_mut(row_idx).copy_from(
-            &new_subcluster1.centroid.clone().unwrap()
-        );
         self.centroids.as_mut().unwrap().row_mut(row_idx).copy_from(
             &new_subcluster1.centroid.clone().unwrap()
         );
@@ -730,7 +714,6 @@ impl VFNode {
             subclusters.len() = {:?}, 
             closest_index/row_idx = {:?},
             subclusters.child[row_idx].sublcusters.len() = {:?},
-            init_centroids shape = {:?}, 
             centroids shape = {:?},
             subclusters.child[row_idx].child is none? = {:?}",
             threshold,
@@ -740,8 +723,6 @@ impl VFNode {
             self.subclusters.as_mut().unwrap()[row_idx].child.as_ref().map_or(
                 0, 
                 |c| c.borrow().subclusters.as_ref().map_or(0, |sc| sc.len())),
-            self.init_centroids.as_ref().map_or((0,0), |c| (c.nrows(), c.ncols())
-            ),
             self.centroids.as_ref().map_or((0,0), |c| (c.nrows(), c.ncols())),
             self.subclusters.as_mut().unwrap()[row_idx].child.is_none()
         );
@@ -795,13 +776,6 @@ impl VFNode {
                 .copy_from(
                     &row.as_ref().unwrap()
             );
-            self.init_centroids
-                .as_mut()
-                .unwrap()
-                .row_mut(row_idx)
-                .copy_from(
-                    &row.as_ref().unwrap()
-            );
 
             return Ok(false)
 
@@ -847,19 +821,6 @@ impl VFNode {
             .update(
                 &subcluster,
                 self.n_features 
-            );
-
-        // NOTE: this saves the first row of centroids
-        self.init_centroids.as_mut()
-            .unwrap()
-            .row_mut(row_idx)
-            .copy_from(
-                &self.subclusters
-                    .as_ref()
-                    .unwrap()[row_idx]
-                    .centroid
-                    .as_ref()
-                    .unwrap()
             );
         
         self.centroids.as_mut()

@@ -86,7 +86,7 @@ python
 >>> voxbirch.read_mol2("path/to/mol.mol2")
 >>> ...
 >>> ...
->>> vb = voxbirch.Voxbirch( num_features = condensed_num_cols )
+>>> vb = voxbirch.voxbirch( num_features = condensed_num_cols )
 >>> vb.cluster()
 ```
 
@@ -108,7 +108,7 @@ populated to least populated (defaulted to write
 If you want to cluster molecules with atom typing:
 
 ```
-voxbirch -p molecules.mol2 -m 10 --atom-typing
+voxbirch -p molecules.mol2 -m 10 --atom-typing explicit-type
 ```
 
 If you must see the debug logs for the purposes of development:
@@ -119,7 +119,7 @@ voxbirch -p molecules.mol2 -vv > output.out 2>&1
 
 By default, atom typing is set to `explicit-type`. 
 If you need to cluster based on element only,
-`elemental-type` would suit you needs.
+`elemental-type` would suit your needs.
 Also, `no-type` will allow the clustering of no typing at all.
 
 
